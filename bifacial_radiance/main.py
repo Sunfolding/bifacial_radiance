@@ -1330,7 +1330,7 @@ class RadianceObj:
 
 
     def makeModule(self, name=None, x=None, y=None, bifi=1, modulefile=None, text=None, customtext='',
-                   torquetube=False, diameter=0.1, tubetype='Round', material='Metal_Grey',
+                   torquetube=False, numtubes=1, tubespacing=0.0, tubeydim=0.0, tubezdim=0.0, diameter=0.1, tubetype='Round', material='Metal_Grey',
                    xgap=0.01, ygap=0.0, zgap=0.1, numpanels=1, rewriteModulefile=True,
                    axisofrotationTorqueTube=False, cellLevelModuleParams=None,  
                    orientation=None, torqueTubeMaterial=None):
@@ -1366,13 +1366,21 @@ class RadianceObj:
             Default True. Will rewrite module file each time makeModule is run.
         torquetube : bool
             This variable defines if there is a torque tube or not.
+        numtubes : int
+            Number of torque tubes.
+        tubespacing: float
+            Distance in meters between torque tubes.
         diameter : float
             Tube diameter in meters. For square,
             For Square, diameter means the length of one of the
             square-tube side.  For Hex, diameter is the distance
             between two vertices (diameter of the circumscribing circle)
+        tubeydim : float
+            Tube y dimension, for rect, z, or c section tubes only. For other tube shapes use diameter.
+        tubezdim : float
+            Tube z dimension, for rect, z, or c section tubes only. For other tube shapes use diameter.
         tubetype : str
-            Options: 'Square', 'Round' (default), 'Hex' or 'Oct'. Tube cross section
+            Options: 'Square', 'Round' (default), 'Hex', 'Oct', 'Rect', 'Z', or 'C'. Tube cross section.
         material : str
             Options: 'Metal_Grey' or 'black'. Material for the torque tube.
         numpanels : int
@@ -1477,6 +1485,14 @@ class RadianceObj:
         # Update values for rotating system around torque tube.
         if axisofrotationTorqueTube == True:
             if torquetube is True:
+                # If tube shape is not 'rect', 'z', or 'c' then we expect a diameter argument.
+                if tubetype.lower() in ('square', 'round', 'hex', 'oct'):
+                    if (tubeydim != 0 and tubeydim != diameter) or (tubezdim != 0 and tubezdim != diameter):
+                        raise Exception('tubeydim and tubezdim only apply to rectangle, z, and c sections. Use "diameter" instead.')
+                else:
+                    wall_thickness = 0.002 # dimension in meters for 'z' and 'c' section walls
+                    diam = tubezdim + 2.0*wall_thickness
+                    
                 offsetfromaxis = np.round(zgap + diam/2.0,8)
                 tto = 0
             else:
@@ -1523,19 +1539,30 @@ class RadianceObj:
                       "Factor of {} %".format(packagingfactor))
 
             if torquetube is True:
+                
+                tubestart = (numtubes-1)*(tubespacing/2.0)
+                tubepos = tubestart
+                
                 if tubetype.lower() == 'square':
                     if axisofrotationTorqueTube == False:
                         tto = -zgap-diam/2.0
-                    text += '\r\n! genbox {} tube1 {} {} {} '.format(material,
+                    for tnum in range(numtubes):
+                        tubename = tnum+1
+                        text += '\r\n! genbox {} tube{} {} {} {} '.format(material, tubename,
                                           x+xgap, diam, diam)
-                    text += '| xform -t {} {} {}'.format(-(x+xgap)/2.0+cc,
-                                        -diam/2.0, -diam/2.0+tto)
+                        text += '| xform -t {} {} {}'.format(-(x+xgap)/2.0+cc, tubepos-diam/2.0, -diam/2.0+tto)
+                        tubepos -= tubespacing
+                    text += '\r\n'
 
                 elif tubetype.lower() == 'round':
                     if axisofrotationTorqueTube == False:
                         tto = -zgap-diam/2.0
-                    text += '\r\n! genrev {} tube1 t*{} {} '.format(material, x+xgap, diam/2.0)
-                    text += '32 | xform -ry 90 -t {} {} {}'.format(-(x+xgap)/2.0+cc, 0, tto)
+                    for tnum in range(numtubes):
+                        tubename = tnum+1
+                        text += '\r\n! genrev {} tube{} t*{} {} '.format(material, tubename, x+xgap, diam/2.0)
+                        text += '32 | xform -ry 90 -t {} {} {}'.format(-(x+xgap)/2.0+cc, tubepos, tto)
+                        tubepos -= tubespacing
+                    text += '\r\n'
 
                 elif tubetype.lower() == 'hex':
                     radius = 0.5*diam
@@ -1543,42 +1570,121 @@ class RadianceObj:
                     if axisofrotationTorqueTube == False:
                         tto = -radius*math.sqrt(3.0)/2.0-zgap
 
-                    text += '\r\n! genbox {} hextube1a {} {} {} | xform -t {} {} {}'.format(
-                            material, x+xgap, radius, radius*math.sqrt(3),
-                            -(x+xgap)/2.0+cc, -radius/2.0, -radius*math.sqrt(3.0)/2.0+tto) #ztran -radius*math.sqrt(3.0)-tto
+                    for tnum in range(numtubes):
+                        tubename = tnum+1
+                        text += '\r\n! genbox {} hextube{}a {} {} {} | xform -t {} {} {}'.format(material, tubename, 
+                            x+xgap, radius, radius*math.sqrt(3),
+                            -(x+xgap)/2.0+cc, tubepos-radius/2.0, -radius*math.sqrt(3.0)/2.0+tto) 
 
-
-                    # Create, translate to center, rotate, translate back to prev. position and translate to overal module position.
-                    text = text+'\r\n! genbox {} hextube1b {} {} {} | xform -t {} {} {} -rx 60 -t 0 0 {}'.format(
-                            material, x+xgap, radius, radius*math.sqrt(3), -(x+xgap)/2.0+cc, -radius/2.0, -radius*math.sqrt(3.0)/2.0, tto) #ztran (radius*math.sqrt(3.0)/2.0)-radius*math.sqrt(3.0)-tto)
-
-                    text = text+'\r\n! genbox {} hextube1c {} {} {} | xform -t {} {} {} -rx -60 -t 0 0 {}'.format(
-                            material, x+xgap, radius, radius*math.sqrt(3), -(x+xgap)/2.0+cc, -radius/2.0, -radius*math.sqrt(3.0)/2.0, tto) #ztran (radius*math.sqrt(3.0)/2.0)-radius*math.sqrt(3.0)-tto)
+                        text += '\r\n! genbox {} hextube{}b {} {} {} | xform -rx 60 -t {} {} {}'.format(material, tubename, 
+                            x+xgap, radius, radius*math.sqrt(3),
+                            -(x+xgap)/2.0+cc, tubepos+radius/2.0, -radius*math.sqrt(3.0)/2.0+tto)
+                            
+                        text += '\r\n! genbox {} hextube{}c {} {} {} | xform -rx -60 -t {} {} {}'.format(material, tubename, 
+                            x+xgap, radius, radius*math.sqrt(3),
+                            -(x+xgap)/2.0+cc, tubepos-radius, tto)
+                           
+                        tubepos -= tubespacing
+                    text += '\r\n'
 
                 elif tubetype.lower()=='oct':
                     radius = 0.5*diam
-                    s = diam / (1+math.sqrt(2.0))   # s
+                    s = diam / (1+math.sqrt(2.0))
 
                     if axisofrotationTorqueTube == False:
                         tto = -radius-zgap
 
-                    text = text+'\r\n! genbox {} octtube1a {} {} {} | xform -t {} {} {}'.format(
-                            material, x+xgap, s, diam, -(x+xgap)/2.0, -s/2.0, -radius+tto)
+                    for tnum in range(numtubes):
+                        tubename = tnum+1
+                        text += '\r\n! genbox {} octtube{}a {} {} {} | xform -t {} {} {}'.format(material, tubename, 
+                            x+xgap, s, diam, 
+                            -(x+xgap)/2.0, tubepos-s/2.0, -radius+tto)
 
-                    # Create, translate to center, rotate, translate back to prev. position and translate to overal module position.
-                    text = text+'\r\n! genbox {} octtube1b {} {} {} | xform -t {} {} {} -rx 45 -t 0 0 {}'.format(
-                            material, x+xgap, s, diam, -(x+xgap)/2.0+cc, -s/2.0, -radius, tto)
+                        text += '\r\n! genbox {} octtube{}b {} {} {} | xform -rx 45 -t {} {} {}'.format(material, tubename,
+                            x+xgap, s, diam,
+                            -(x+xgap)/2.0+cc, tubepos+s/2.0, -radius+tto)
+                            
+                        text += '\r\n! genbox {} octtube{}c {} {} {} | xform -rx -45 -t {} {} {}'.format(material, tubename,
+                            x+xgap, s, diam,
+                            -(x+xgap)/2.0+cc, tubepos-radius, -s/2.0+tto)
+                            
+                        text += '\r\n! genbox {} octtube{}d {} {} {} | xform -rx -90 -t {} {} {}'.format(material, tubename,
+                            x+xgap, s, diam,
+                            -(x+xgap)/2.0+cc, tubepos-radius, s/2.0+tto)
+                            
+                        tubepos -= tubespacing
+                    text += '\r\n'
+                    
+                elif tubetype.lower() == 'c':
+                    
+                    if axisofrotationTorqueTube == False:
+                        tto = -zgap-tubezdim/2.0
+                    
+                    for tnum in range(numtubes):
+                        tubename = tnum+1
 
-                    text = text+'\r\n! genbox {} octtube1c {} {} {} | xform -t {} {} {} -rx 90 -t 0 0 {}'.format(
-                            material, x+xgap, s, diam, -(x+xgap)/2.0+cc, -s/2.0, -radius, tto)
+                        # Reverse orientation of every other purlin
+                        center_yoffset = -tubeydim/2.0
+                        if tnum%2:
+                            center_yoffset = tubeydim/2.0-wall_thickness
 
-                    text = text+'\r\n! genbox {} octtube1d {} {} {} | xform -t {} {} {} -rx 135 -t 0 0 {} '.format(
-                            material, x+xgap, s, diam, -(x+xgap)/2.0+cc, -s/2.0, -radius, tto)
+                        # Upper flange
+                        text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
+                            x+xgap, tubeydim, wall_thickness, -(x+xgap)/2.0, tubepos-tubeydim/2.0, tubezdim/2.0+tto)
 
+                        # Center web
+                        text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
+                            x+xgap, wall_thickness, tubezdim-2.0*wall_thickness, -(x+xgap)/2.0, tubepos+center_yoffset, -tubezdim/2.0+2.0*wall_thickness+tto)
+
+                        # Lower flange
+                        text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
+                            x+xgap, tubeydim, wall_thickness, -(x+xgap)/2.0, tubepos-tubeydim/2.0, -tubezdim/2.0+wall_thickness+tto)
+
+                        tubepos -= tubespacing
+                    text += '\r\n'
+
+                elif tubetype.lower() == 'z':
+
+                    if axisofrotationTorqueTube == False:
+                        tto = -zgap-tubezdim/2.0
+                        
+                    for tnum in range(numtubes):
+                        tubename = tnum+1
+                        
+                        # Reverse orientation of every other purlin
+                        upper_yoffset = tubeydim/2.0
+                        lower_yoffset = wall_thickness/2.0
+                        if tnum%2:
+                            upper_yoffset = wall_thickness/2.0
+                            lower_yoffset = tubeydim/2.0
+                            
+                        # Upper flange
+                        text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
+                            x+xgap, tubeydim/2.0+wall_thickness/2.0, wall_thickness, -(x+xgap)/2.0, tubepos-upper_yoffset, tubezdim/2.0+tto)
+                        # Lower flange
+                        text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
+                            x+xgap, tubeydim/2.0+wall_thickness/2.0, wall_thickness, -(x+xgap)/2.0, tubepos-lower_yoffset, -tubezdim/2.0+wall_thickness+tto)
+                        # Center web
+                        text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
+                            x+xgap, wall_thickness, tubezdim-2.0*wall_thickness, -(x+xgap)/2.0, tubepos-wall_thickness/2.0, -tubezdim/2.0+2.0*wall_thickness+tto)
+
+                        tubepos -= tubespacing
+                    text += '\r\n'
+                    
+                elif tubetype.lower() == 'rect':
+                    if axisofrotationTorqueTube == False:
+                        tto = -zgap-diam/2.0
+                    for tnum in range(numtubes):
+                        tubename = tnum+1
+                        text += '\r\n! genbox {} tube{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
+                            x+xgap, tubeydim, tubezdim,
+                            -(x+xgap)/2.0+cc, tubepos-tubeydim/2.0, -tubezdim/2.0+tto)
+                        tubepos -= tubespacing
+                    text += '\r\n'
 
                 else:
                     raise Exception("Incorrect torque tube type.  "+
-                                    "Available options: 'square' or 'round'."+
+                                    "Available options: 'square', 'round', 'oct', 'hex', 'rect', 'z', 'c'."+
                                     "  Value entered: {}".format(tubetype))
 
             text += customtext  # For adding any other racking details at the module level that the user might want.
@@ -1601,6 +1707,8 @@ class RadianceObj:
                       'torquetube':{'bool':torquetube,
                                     'diameter':diameter,
                                     'tubetype':tubetype,
+                                    'numtubes':numtubes,
+                                    'tubespacing':tubespacing,
                                     'material':material
                               }
                       }
