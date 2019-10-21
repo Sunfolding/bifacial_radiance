@@ -76,3 +76,15 @@ void plastic Metal_Grey
 0
 0
 5  0.43 0.448 0.465  0.5 0.5
+
+# Holes for Metal_Grey
+void antimatter metal_cutout
+1 Metal_Grey
+0
+0
+
+# Holes for modules make of material 'black'
+void antimatter module_cutout
+1 black
+0
+0
