@@ -3459,8 +3459,8 @@ class AnalysisObj:
         nRows = sceneDict['nRows']
         originx = sceneDict['originx']
         originy = sceneDict['originy']
-        modulez = sceneDict['modulez'] # overall z height of module+frame
-        framez = sceneDict['framez'] # z height of rear of module
+        modulez = sceneDict['modulez']
+        framez = sceneDict['framez']
 
        # offset = moduleDict['offsetfromaxis']
         offset = scene.offsetfromaxis
@@ -3561,23 +3561,22 @@ class AnalysisObj:
         z2 = -(sceney/2.0) * np.sin(tilt*dtor)
 
 
-        # Axis of rotation Offset (if offset is not 0)
-        x3 = (modulez+offset)*np.sin(tilt*dtor) * np.sin((azimuth)*dtor) # For front side of module
-        y3 = offset * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
-        z3 = offset * np.cos(tilt*dtor)
-        x4 = (framez+offset)*np.sin(tilt*dtor) * np.sin((azimuth)*dtor) # For back side of module
+        # Axis of rotation Offset (if offset is not 0) for the front of the module
+        x3 = (offset + modulez) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
+        y3 = (offset + modulez) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
+        z3 = (offset + modulez) * np.cos(tilt*dtor)
         
-        # Module depth offset, front side
-        z4 = modulez * np.cos(tilt*dtor)
-        # Frame depth offset, back side
-        z5 = framez * np.cos(tilt*dtor)
-
+        # Axis of rotation offset for the back of the module
+        x4 = (offset + framez) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
+        y4 = (offset + framez) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
+        z4 = (offset + framez) * np.cos(tilt*dtor)
 
         xstartfront = x1 + x2 + x3 + originx
         xstartback = x1 + x2 + x4 + originx
-        ystart = y1 + y2 + y3 + originy
-        zstartfront = height + z1 + z2 + z3 + z4
-        zstartback = height + z1 + z2 + z3 + z5
+        ystartfront = y1 + y2 + y3 + originy
+        ystartback = y1 + y2 + y4 + originy
+        zstartfront = height + z1 + z2 + z3
+        zstartback = height + z1 + z2 + z4
 
         xinc = -(sceney/(sensorsy + 1.0)) * np.cos((tilt)*dtor) * np.sin((azimuth)*dtor)
         yinc = -(sceney/(sensorsy + 1.0)) * np.cos((tilt)*dtor) * np.cos((azimuth)*dtor)
@@ -3589,7 +3588,8 @@ class AnalysisObj:
             print("Coordinate Center Point of Desired Panel after azm rotation", x1, y1)
             print("Edge of Panel", x2, y2, z2)
             print("Offset Shift", x3, y3, z3)
-            print("Final Start Coordinate", xstartfront, ystart, zstartfront)
+            print("Final Start Coordinate, front ", xstartfront, ystartfront, zstartfront)
+            print("Final Start Coordinate, back ", xstartback, ystartback, zstartback)
             print("Increase Coordinates", xinc, yinc, zinc)
         
         #NEW: adjust orientation of scan depending on tilt & azimuth
@@ -3599,14 +3599,12 @@ class AnalysisObj:
         front_orient = '%0.3f %0.3f %0.3f' % (-xdir, -ydir, -zdir)
         back_orient = '%0.3f %0.3f %0.3f' % (xdir, ydir, zdir)
         
-        frontscan = {'xstart': xstartfront + xinc, 
-                     'ystart': ystart + yinc,
-                     'zstart': zstartfront + zinc + 0.002, # just above top surface of module
+        frontscan = {'xstart': xstartfront+xinc, 'ystart': ystartfront+yinc,
+                     'zstart': zstartfront + zinc + 0.001,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc , 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':front_orient }
-        backscan = { 'xstart': xstartback + xinc, 
-                     'ystart': ystart + yinc,
-                     'zstart': zstartback + zinc + - 0.002, # just below bottom surface of module
+        backscan = {'xstart': xstartback + xinc, 'ystart':  ystartback+yinc,
+                     'zstart': zstartback + zinc - 0.001,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc, 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':back_orient }
 
