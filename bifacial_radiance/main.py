@@ -1357,7 +1357,7 @@ class RadianceObj:
     def makeModule(self, name=None, x=None, y=None, bifi=1, modulefile=None, text=None, customtext='',
                    torquetube=False, numtubes=1, tubespacing=0.0, tubeydim=0.0, tubezdim=0.0, diameter=0.1, tubetype='Round', material='Metal_Grey',
                    xgap=0.01, ygap=0.0, zgap=0.1, numpanels=1, rewriteModulefile=True,
-                   axisofrotationTorqueTube=False, cellLevelModuleParams=None, hasFrame=False,
+                   axisofrotationTorqueTube=False, cellLevelModuleParams=None, hasFrame=False, tubeflip=False,
                    orientation=None, torqueTubeMaterial=None):
         """
         Add module details to the .JSON module config file module.json
@@ -1500,6 +1500,8 @@ class RadianceObj:
 
         # Defaults for rotating system around module
         offsetfromaxis = 0      # Module Offset
+        
+        wall_thickness = 0.002 # dimension in meters for 'z' and 'c' section walls
 
         # Update values for rotating system around torque tube.
         if axisofrotationTorqueTube == True:
@@ -1509,7 +1511,6 @@ class RadianceObj:
                     if (tubeydim != 0 and tubeydim != diameter) or (tubezdim != 0 and tubezdim != diameter):
                         raise Exception('tubeydim and tubezdim only apply to rectangle, z, and c sections. Use "diameter" instead.')
                 else:
-                    wall_thickness = 0.002 # dimension in meters for 'z' and 'c' section walls
                     diam = tubezdim + 2.0*wall_thickness
                     
                 offsetfromaxis = np.round(zgap + diam/2.0,8)
@@ -1661,9 +1662,15 @@ class RadianceObj:
                         tubename = tnum+1
 
                         # Reverse orientation of every other purlin
-                        center_yoffset = -tubeydim/2.0
+                        if tubeflip is True:
+                            center_yoffset = tubeydim/2.0
+                        else:
+                            center_yoffset = -tubeydim/2.0
                         if tnum%2:
-                            center_yoffset = tubeydim/2.0-wall_thickness
+                            if tubeflip is True:
+                                center_yoffset = -tubeydim/2.0-wall_thickness
+                            else:
+                                center_yoffset = tubeydim/2.0-wall_thickness
 
                         # Upper flange
                         text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
@@ -1689,11 +1696,20 @@ class RadianceObj:
                         tubename = tnum+1
                         
                         # Reverse orientation of every other purlin
-                        upper_yoffset = tubeydim/2.0
-                        lower_yoffset = wall_thickness/2.0
-                        if tnum%2:
+                        if tubeflip is True:
+                            upper_yoffset = tubeydim/2.0
+                            lower_yoffset = wall_thickness/2.0
+                        else:
                             upper_yoffset = wall_thickness/2.0
                             lower_yoffset = tubeydim/2.0
+                            
+                        if tnum%2:
+                            if tubeflip is True:
+                                upper_yoffset = wall_thickness/2.0
+                                lower_yoffset = tubeydim/2.0
+                            else:
+                                upper_yoffset = tubeydim/2.0
+                                lower_yoffset = wall_thickness/2.0
                             
                         # Upper flange
                         text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
@@ -2045,6 +2061,11 @@ class RadianceObj:
             sceneDict['nRows'] = 7
         if 'nMods' not in sceneDict:
             sceneDict['nMods'] = 20
+            
+        if 'originx' not in sceneDict:
+            sceneDict['originx'] = 0
+        if 'originy' not in sceneDict:
+            sceneDict['originy'] = 0
 
         if trackerdict is None:
             try:
@@ -2150,6 +2171,8 @@ class RadianceObj:
                                   'azimuth':trackerdict[theta]['surf_azm'],
                                   'nMods': sceneDict['nMods'],
                                   'nRows': sceneDict['nRows'],
+                                  'originx': sceneDict['originx'],
+                                  'originy': sceneDict['originy'],
                                   'modulez': scene.moduleDict['modulez'],
                                   'framez': scene.moduleDict['framez']}
                 except KeyError:
@@ -2160,6 +2183,8 @@ class RadianceObj:
                                   'azimuth':trackerdict[theta]['surf_azm'],
                                   'nMods': sceneDict['nMods'],
                                   'nRows': sceneDict['nRows'],
+                                  'originx': sceneDict['originx'],
+                                  'originy': sceneDict['originy'],
                                   'modulez': scene.moduleDict['modulez'],
                                   'framez': scene.moduleDict['framez']}
 
@@ -2198,6 +2223,8 @@ class RadianceObj:
                                       'azimuth':trackerdict[time]['surf_azm'],
                                       'nMods': sceneDict['nMods'],
                                       'nRows': sceneDict['nRows'],
+                                      'originx': sceneDict['originx'],
+                                      'originy': sceneDict['originy'],
                                       'modulez': scene.moduleDict['modulez'],
                                       'framez': scene.moduleDict['framez']}
                     except KeyError:
@@ -2208,6 +2235,8 @@ class RadianceObj:
                                       'azimuth':trackerdict[time]['surf_azm'],
                                       'nMods': sceneDict['nMods'],
                                       'nRows': sceneDict['nRows'],
+                                      'originx': sceneDict['originx'],
+                                      'originy': sceneDict['originy'],
                                       'modulez': scene.moduleDict['modulez'],
                                       'framez': scene.moduleDict['framez']}
 
@@ -3670,14 +3699,14 @@ class AnalysisObj:
 
 
         # Axis of rotation Offset (if offset is not 0) for the front of the module
-        x3 = (offset + modulez) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
+        x3 = (offset + modulez + 0.002) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
         y3 = (offset + modulez) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
-        z3 = (offset + modulez) * np.cos(tilt*dtor)
+        z3 = (offset + modulez + 0.002) * np.cos(tilt*dtor)
         
         # Axis of rotation offset for the back of the module
-        x4 = (offset + framez) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
+        x4 = (offset + framez - 0.003) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
         y4 = (offset + framez) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
-        z4 = (offset + framez) * np.cos(tilt*dtor)
+        z4 = (offset + framez - 0.003) * np.cos(tilt*dtor)
 
         xstartfront = x1 + x2 + x3 + originx
         xstartback = x1 + x2 + x4 + originx
@@ -3708,11 +3737,11 @@ class AnalysisObj:
         back_orient = '%0.3f %0.3f %0.3f' % (xdir, ydir, zdir)
         
         frontscan = {'xstart': xstartfront+xinc, 'ystart': ystartfront+yinc,
-                     'zstart': zstartfront + zinc + 0.001,
+                     'zstart': zstartfront + zinc,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc , 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':front_orient }
         backscan = {'xstart': xstartback + xinc, 'ystart':  ystartback+yinc,
-                     'zstart': zstartback + zinc - 0.001,
+                     'zstart': zstartback + zinc,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc, 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':back_orient }
 
