@@ -1532,12 +1532,22 @@ class RadianceObj:
         #TODO: replace these with functions
 
         modulez = 0.020
+        moduley = y
+        modulex = x
         framez = 0.0
-        framewidth = 0.008
+        framey = 0.0
+        framex = 0.0
+        framewidth = 0.010
+        modulezoffset = 0.0
         if hasFrame is True:
             if not cellLevelModuleParams: 
                 framez = 0.033
-                modulez = 0.035
+                modulez = 0.005
+                framex = x
+                framey = y
+                modulex -= framewidth
+                moduley -= framewidth
+                modulezoffset = round(framez-modulez+0.002,8)
             else:
                 print('\n\n WARNING: cellLevelModuleParams is not compatible with hasFrame\n\n')
             
@@ -1545,18 +1555,23 @@ class RadianceObj:
             
             if not cellLevelModuleParams:
                 try:
-                    text = '! genbox black {} {} {} {} '.format(name2, x, y, modulez)
-                    text +='| xform -t {} {} {} '.format(-x/2.0, (-y*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
-                    text += '-a {} -t 0 {} 0'.format(Ny, y+ygap)
-                    packagingfactor = 100.0
+                    text = '! genbox black {} {} {} {} '.format(name2, modulex, moduley, modulez)
+                    text +='| xform -t {} {} {} '.format(-modulex/2.0, (-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis+modulezoffset)
+                    text += '-a {} -t 0 {} 0'.format(Ny, moduley+ygap)
                     
                     # Create cavity on rear of module from antimatter. Note we need to have the antimatter extend just outside the module to ensure that it works properly,
                     # hence the addition of 0.001m depth
                     if hasFrame is True:
-                        text +='\r\n'
-                        text +='! genbox module_cutout framecavity {} {} {} '.format(x-framewidth, y-framewidth, round(framez+0.001,8))
-                        text +='| xform -t {} {} {} '.format((-x/2.0)+(framewidth/2.0), (-y*Ny/2.0)-(ygap*(Ny-1)/2.0)+(framewidth/2.0), round(offsetfromaxis-0.001,8))
-                        text += '-a {} -t 0 {} 0'.format(Ny, y+ygap)
+                        text +='\r\n!genbox ModuleFrame moduleframe {} {} {} '.format(framex, framey, framez)
+                        text +='| xform -t {} {} {} '.format(-framex/2.0, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
+                        text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
+                        # antimatter needs to be slightly bigger in z than the object we are cutting a hole in and smaller in xy to overlap with the module material
+                        cutoutx = round(modulex-0.002,8)
+                        cutouty = round(moduley-0.002,8)
+                        cutoutz = round(framez+0.002,8)
+                        text += '\r\n!genbox frame_cutout frameopening {} {} {} '.format(cutoutx, cutouty, cutoutz) 
+                        text +='| xform -t {} {} {} '.format(-(round(cutoutx-0.001,8))/2.0, (-round(cutouty-0.001,8)*Ny/2.0)-(ygap*(Ny-1)/2.0), round(offsetfromaxis-0.001,8))
+                        text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
                         
                     packagingfactor = 100.0
 
