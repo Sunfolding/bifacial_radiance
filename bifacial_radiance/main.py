@@ -182,7 +182,6 @@ class RadianceObj:
             self.name = self.nowstr  # set default filename for output files
         else:
             self.name = name
-        self.basename = name # add backwards compatibility for prior versions
         #self.__name__ = self.name  #optional info
         #self.__str__ = self.__name__   #optional info
         if path is None:
@@ -743,7 +742,7 @@ class RadianceObj:
         return tracker_theta
 
 
-    def gendaylit(self, metdata, timeindex, debug=False):
+    def gendaylit(self, metdata, timeindex, colorsky=False, debug=False):
         """
         Sets and returns sky information using gendaylit.
         Uses PVLIB for calculating the sun position angles instead of
@@ -798,6 +797,16 @@ class RadianceObj:
         sunaz = float(solpos.azimuth)-180.0
 
         sky_path = 'skies'
+        
+        skytype = ''
+        skyRrefl = 1
+        skyGrefl = 1
+        skyBrefl = 1
+        if colorsky is True:
+            skytype = '-CIE'
+            skyRrefl = 0.986
+            skyGrefl = 0.986
+            skyBrefl = 1.205
 
         if dhi <= 0:
             self.skyfiles = [None]
@@ -816,8 +825,8 @@ class RadianceObj:
             +" LON: " + str(lon) + " Elev: " + str(elev) + "\n"
             "# Sun position calculated w. PVLib\n" + \
             "!gendaylit -ang %s %s" %(sunalt, sunaz)) + \
-            " -W %s %s -g %s -O 1 \n" %(dni, dhi, self.ground.ReflAvg) + \
-            "skyfunc glow sky_mat\n0\n0\n4 1 1 1 0\n" + \
+            " -W %s %s -g %s -O 1 %s \n" % (dni, dhi, self.ground.ReflAvg, skytype) + \
+            "skyfunc glow sky_mat\n0\n0\n4 %0.3f %0.3f %0.3f 0\n" % (skyRrefl, skyGrefl, skyBrefl) + \
             "\nsky_mat source sky\n0\n0\n4 0 0 1 180\n" + \
             '\nskyfunc glow ground_glow\n0\n0\n4 ' + \
             '%s ' % (self.ground.Rrefl/self.ground.normval)  + \
@@ -1102,7 +1111,7 @@ class RadianceObj:
 
         return trackerdict
 
-    def gendaylit1axis(self, metdata=None, trackerdict=None, startdate=None,
+    def gendaylit1axis(self, metdata=None, trackerdict=None, startdate=None, colorsky=False,
                        enddate=None, debug=False, hpc=False):
         """
         1-axis tracking implementation of gendaylit.
@@ -1183,7 +1192,7 @@ class RadianceObj:
             #check for GHI > 0
             #if metdata.ghi[i] > 0:
             if (metdata.ghi[i] > 0) & (~np.isnan(metdata.tracker_theta[i])):  
-                skyfile = self.gendaylit(metdata,i, debug=debug)
+                skyfile = self.gendaylit(metdata, i, colorsky=colorsky, debug=debug)
                 # trackerdict2 reduces the dict to only the range specified.
                 trackerdict2[filename] = trackerdict[filename]  
                 trackerdict2[filename]['skyfile'] = skyfile
