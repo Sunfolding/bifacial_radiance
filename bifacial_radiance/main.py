@@ -756,6 +756,8 @@ class RadianceObj:
             MetObj object with 8760 list of dni, dhi, ghi and location
         timeindex : int
             Index from 0 to 8759 of EPW timestep
+        colorsky : bool
+            If true, generate CIE clear blue sky
         debug : bool
             Flag to print output of sky DHI and DNI
 
@@ -804,7 +806,7 @@ class RadianceObj:
         skyBrefl = 1
         if colorsky is True:
             skytype = '-CIE'
-            skyRrefl = 0.986
+            skyRrefl = 0.986 # Values for a clear blue sky
             skyGrefl = 0.986
             skyBrefl = 1.205
 
