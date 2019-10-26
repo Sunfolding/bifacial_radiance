@@ -838,7 +838,7 @@ class RadianceObj:
             "\nvoid plastic %s\n0\n0\n5 %0.3f %0.3f %0.3f 0 0\n" %(
             self.ground.ground_type, self.ground.Rrefl, self.ground.Grefl, self.ground.Brefl) +\
             "\n%s ring groundplane\n" % (self.ground.ground_type) +\
-            '0\n0\n8\n0 0 -.01\n0 0 1\n0 100'
+            '0\n0\n8\n0 0 0\n0 0 1\n0 400'
 
         time = metdata.datetime[timeindex]
         filename = str(time)[5:-12].replace('-','_').replace(' ','_')
