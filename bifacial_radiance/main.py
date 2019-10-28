@@ -1522,9 +1522,9 @@ class RadianceObj:
                     if (tubeydim != 0 and tubeydim != diameter) or (tubezdim != 0 and tubezdim != diameter):
                         raise Exception('tubeydim and tubezdim only apply to rectangle, z, and c sections. Use "diameter" instead.')
                 else:
-                    diam = tubezdim + 2.0*wall_thickness
+                    diam = tubezdim
                     
-                offsetfromaxis = np.round(zgap + diam/2.0,8)
+                offsetfromaxis = np.round(zgap + diam/2.0, 8)
                 tto = 0
             else:
                 offsetfromaxis = zgap
@@ -1537,7 +1537,7 @@ class RadianceObj:
         framez = 0.0
         framey = 0.0
         framex = 0.0
-        framewidth = 0.010
+        framewidth = 0.008
         modulezoffset = 0.0
         if hasFrame is True:
             if not cellLevelModuleParams: 
@@ -1547,7 +1547,8 @@ class RadianceObj:
                 framey = y
                 modulex -= framewidth
                 moduley -= framewidth
-                modulezoffset = round(framez-modulez+0.002,8)
+                # ~ modulezoffset = round(framez-modulez+0.002,8)
+                modulezoffset = round(framez-modulez+0.0005,8)
             else:
                 print('\n\n WARNING: cellLevelModuleParams is not compatible with hasFrame\n\n')
             
@@ -1559,19 +1560,34 @@ class RadianceObj:
                     text +='| xform -t {} {} {} '.format(-modulex/2.0, (-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis+modulezoffset)
                     text += '-a {} -t 0 {} 0'.format(Ny, moduley+ygap)
                     
+                    # Antimatter seems to mess with rtrace for some reason
                     # Create cavity on rear of module from antimatter. Note we need to have the antimatter extend just outside the module to ensure that it works properly,
                     # hence the addition of 0.001m depth
+                    # ~ if hasFrame is True:
+                        # ~ text +='\r\n!genbox ModuleFrame moduleframe {} {} {} '.format(framex, framey, framez)
+                        # ~ text +='| xform -t {} {} {} '.format(-framex/2.0, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
+                        # ~ text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
+                        # ~ # antimatter needs to be slightly bigger in z than the object we are cutting a hole in and smaller in xy to overlap with the module material
+                        # ~ cutoutx = round(modulex-0.002,8)
+                        # ~ cutouty = round(moduley-0.002,8)
+                        # ~ cutoutz = round(framez+0.002,8)
+                        # ~ text += '\r\n!genbox frame_cutout frameopening {} {} {} '.format(cutoutx, cutouty, cutoutz) 
+                        # ~ text +='| xform -t {} {} {} '.format(-(round(cutoutx-0.001,8))/2.0, (-round(cutouty-0.001,8)*Ny/2.0)-(ygap*(Ny-1)/2.0), round(offsetfromaxis-0.001,8))
+                        # ~ text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
+                        
                     if hasFrame is True:
-                        text +='\r\n!genbox ModuleFrame moduleframe {} {} {} '.format(framex, framey, framez)
-                        text +='| xform -t {} {} {} '.format(-framex/2.0, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
-                        text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
-                        # antimatter needs to be slightly bigger in z than the object we are cutting a hole in and smaller in xy to overlap with the module material
-                        cutoutx = round(modulex-0.002,8)
-                        cutouty = round(moduley-0.002,8)
-                        cutoutz = round(framez+0.002,8)
-                        text += '\r\n!genbox frame_cutout frameopening {} {} {} '.format(cutoutx, cutouty, cutoutz) 
-                        text +='| xform -t {} {} {} '.format(-(round(cutoutx-0.001,8))/2.0, (-round(cutouty-0.001,8)*Ny/2.0)-(ygap*(Ny-1)/2.0), round(offsetfromaxis-0.001,8))
-                        text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
+						# Top horizontal
+                        text +='\r\n!genbox ModuleFrame frametop {} {} {} '.format(framex-(framewidth*2), framewidth, framez)
+                        text+='| xform -t {} {} {} '.format(-(framex-(framewidth*2))/2.0, (framey*Ny/2.0)-(ygap*(Ny-1)/2.0) - framewidth, offsetfromaxis)
+                        # Bottom horizontal
+                        text +='\r\n!genbox ModuleFrame framebot {} {} {} '.format(framex-(framewidth*2), framewidth, framez)
+                        text+='| xform -t {} {} {} '.format(-(framex-(framewidth*2))/2.0, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
+                        # Left side
+                        text +='\r\n!genbox ModuleFrame frame1 {} {} {} '.format(framewidth, framey, framez)
+                        text+='| xform -t {} {} {} '.format(-framex/2.0, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
+                        # Right side
+                        text +='\r\n!genbox ModuleFrame frame1 {} {} {} '.format(framewidth, framey, framez)
+                        text+='| xform -t {} {} {} '.format(framex/2.0-framewidth, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
                         
                     packagingfactor = 100.0
 
@@ -1739,13 +1755,13 @@ class RadianceObj:
                             
                         # Upper flange
                         text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
-                            x+xgap, tubeydim/2.0+wall_thickness/2.0, wall_thickness, -(x+xgap)/2.0, tubepos-upper_yoffset, tubezdim/2.0+tto)
+                            x+xgap, tubeydim/2.0+wall_thickness/2.0, wall_thickness, -(x+xgap)/2.0, tubepos-upper_yoffset, tubezdim/2.0-wall_thickness+tto)
                         # Lower flange
                         text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
-                            x+xgap, tubeydim/2.0+wall_thickness/2.0, wall_thickness, -(x+xgap)/2.0, tubepos-lower_yoffset, -tubezdim/2.0+wall_thickness+tto)
+                            x+xgap, tubeydim/2.0+wall_thickness/2.0, wall_thickness, -(x+xgap)/2.0, tubepos-lower_yoffset, -tubezdim/2.0+tto)
                         # Center web
                         text = text+'\r\n! genbox {} purlin{} {} {} {} | xform -t {} {} {}'.format(material, tubename,
-                            x+xgap, wall_thickness, tubezdim-2.0*wall_thickness, -(x+xgap)/2.0, tubepos-wall_thickness/2.0, -tubezdim/2.0+2.0*wall_thickness+tto)
+                            x+xgap, wall_thickness, tubezdim-2.0*wall_thickness, -(x+xgap)/2.0, tubepos-wall_thickness/2.0, -tubezdim/2.0+wall_thickness+tto)
 
                         tubepos -= tubespacing
                     text += '\r\n'
@@ -1793,7 +1809,6 @@ class RadianceObj:
                                     'material':material
                               }
                       }
- 
 
         filedir = os.path.join(DATA_PATH, 'module.json') 
         with open(filedir) as configfile:
@@ -2283,8 +2298,8 @@ class RadianceObj:
         return trackerdict#self.scene
 
 
-    def analysis1axis(self, trackerdict=None, singleindex=None, accuracy='low',
-                      customname=None, modWanted=None, rowWanted=None, sensorsy=9):
+    def analysis1axis(self, trackerdict=None, singleindex=None, accuracy='low', rtrace_cmd='',
+                      customname=None, modWanted=None, rowWanted=None, yoffset=0, sensorsy=9):
         """
         Loop through trackerdict and runs linescans for each scene and scan in there.
 
@@ -2352,8 +2367,8 @@ class RadianceObj:
             try:  # look for missing data
                 analysis = AnalysisObj(octfile,name)
                 name = '1axis_%s%s'%(index,customname,)
-                frontscan, backscan = analysis.moduleAnalysis(scene=scene, modWanted=modWanted, rowWanted=rowWanted, sensorsy=sensorsy)
-                analysis.analysis(octfile=octfile,name=name,frontscan=frontscan,backscan=backscan,accuracy=accuracy)                
+                frontscan, backscan = analysis.moduleAnalysis(scene=scene, modWanted=modWanted, rowWanted=rowWanted, yoffset=yoffset, sensorsy=sensorsy)
+                analysis.analysis(octfile=octfile, name=name, frontscan=frontscan, backscan=backscan, rtrace_cmd=rtrace_cmd, accuracy=accuracy)                
                 trackerdict[index]['AnalysisObj'] = analysis
             except Exception as e: # problem with file. TODO: only catch specific error types here.
                 warnings.warn('Index: {}. Problem with file. Error: {}. Skipping'.format(index,e), Warning)
@@ -3365,7 +3380,7 @@ class AnalysisObj:
         return(linepts)
 
     def _irrPlot(self, octfile, linepts, mytitle=None, plotflag=None,
-                   accuracy='low', hpc=False):
+                   accuracy='low', rtrace_cmd='', hpc=False):
         """
         (plotdict) = _irrPlot(linepts,title,time,plotflag, accuracy)
         irradiance plotting using rtrace
@@ -3435,6 +3450,10 @@ class AnalysisObj:
         elif accuracy == 'high':
             #rtrace ambient values set for 'very accurate':
             cmd = "rtrace -i -ab 5 -aa .08 -ar 512 -ad 2048 -as 512 -h -oovs "+ octfile
+        elif accuracy == 'custom':
+            cmd = rtrace_cmd+' '+octfile
+            print("Custom rtrace command:")
+            print(cmd)
         else:
             print('_irrPlot accuracy options: "low" or "high"')
             return({})
@@ -3571,7 +3590,7 @@ class AnalysisObj:
         return (savefile)
 
     def moduleAnalysis(self, scene, modWanted=None, rowWanted=None,
-                       sensorsy=9.0, debug=False):
+                       sensorsy=9.0, yoffset=0, debug=False):
         """
         This function defines the scan points to be used in the :py:class:`~bifacial_radiance.AnalysisObj.analysis` function,
         to perform the raytrace through Radiance function `rtrace`
@@ -3722,17 +3741,17 @@ class AnalysisObj:
         x2 = (sceney/2.0) * np.cos((tilt)*dtor) * np.sin((azimuth)*dtor)
         y2 = (sceney/2.0) * np.cos((tilt)*dtor) * np.cos((azimuth)*dtor)
         z2 = -(sceney/2.0) * np.sin(tilt*dtor)
-
+        
 
         # Axis of rotation Offset (if offset is not 0) for the front of the module
-        x3 = (offset + modulez + 0.002) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
-        y3 = (offset + modulez) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
-        z3 = (offset + modulez + 0.002) * np.cos(tilt*dtor)
+        x3 = (offset + framez + 0.004) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
+        y3 = (offset + framez) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
+        z3 = (offset + framez + 0.004) * np.cos(tilt*dtor)
         
         # Axis of rotation offset for the back of the module
-        x4 = (offset + framez - 0.003) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
-        y4 = (offset + framez) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
-        z4 = (offset + framez - 0.003) * np.cos(tilt*dtor)
+        x4 = (offset + (framez-modulez) - 0.004) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
+        y4 = (offset + (framez-modulez) - 0.004) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
+        z4 = (offset + (framez-modulez) - 0.004) * np.cos(tilt*dtor)
 
         xstartfront = x1 + x2 + x3 + originx
         xstartback = x1 + x2 + x4 + originx
@@ -3762,18 +3781,18 @@ class AnalysisObj:
         front_orient = '%0.3f %0.3f %0.3f' % (-xdir, -ydir, -zdir)
         back_orient = '%0.3f %0.3f %0.3f' % (xdir, ydir, zdir)
         
-        frontscan = {'xstart': xstartfront+xinc, 'ystart': ystartfront+yinc,
+        frontscan = {'xstart': xstartfront+xinc, 'ystart': ystartfront+yinc+ yoffset,
                      'zstart': zstartfront + zinc,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc , 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':front_orient }
-        backscan = {'xstart': xstartback + xinc, 'ystart':  ystartback+yinc,
+        backscan = {'xstart': xstartback + xinc, 'ystart':  ystartback+yinc+ yoffset,
                      'zstart': zstartback + zinc,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc, 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':back_orient }
 
         return frontscan, backscan
 
-    def analysis(self, octfile, name, frontscan, backscan, plotflag=False, accuracy='low'):
+    def analysis(self, octfile, name, frontscan, backscan, plotflag=False, accuracy='low', rtrace_cmd=''):
         """
         General analysis function, where linepts are passed in for calling the
         raytrace routine :py:class:`~bifacial_radiance.AnalysisObj._irrPlot` 
@@ -3810,12 +3829,12 @@ class AnalysisObj:
             return None, None
         linepts = self._linePtsMakeDict(frontscan)
         frontDict = self._irrPlot(octfile, linepts, name+'_Front',
-                                    plotflag=plotflag, accuracy=accuracy)
+                                    plotflag=plotflag, accuracy=accuracy, rtrace_cmd=rtrace_cmd)
 
         #bottom view.
         linepts = self._linePtsMakeDict(backscan)
         backDict = self._irrPlot(octfile, linepts, name+'_Back',
-                                   plotflag=plotflag, accuracy=accuracy)
+                                   plotflag=plotflag, accuracy=accuracy, rtrace_cmd=rtrace_cmd)
         # don't save if _irrPlot returns an empty file.
         if frontDict is not None:
             self._saveResults(frontDict, backDict,'irr_%s.csv'%(name) )
