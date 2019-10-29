@@ -75,7 +75,11 @@ def _findme(lst, a): #find string match in a list. script from stackexchange
 
 
 def _normRGB(r, g, b): #normalize by each color for human vision sensitivity
-    return r*0.216+g*0.7152+b*0.0722
+    # ~ return r*0.216+g*0.7152+b*0.0722
+    # From http://www.jaloxa.eu/resources/radiance/documentation/docs/radiance_tutorial.pdf
+    # Normalized reflectance = (0.265*R+0.670*G+0.065*B)
+    return(0.265*r + 0.670*g + 0.065*b)
+    
 
 def _popen(cmd, data_in, data_out=PIPE):
     """
@@ -800,15 +804,13 @@ class RadianceObj:
 
         sky_path = 'skies'
         
-        skytype = ''
         skyRrefl = 1
         skyGrefl = 1
         skyBrefl = 1
         if colorsky is True:
-            skytype = '-CIE'
             skyRrefl = 0.986 # Values for a clear blue sky
             skyGrefl = 0.986
-            skyBrefl = 1.205
+            skyBrefl = 1.202
 
         if dhi <= 0:
             self.skyfiles = [None]
@@ -827,7 +829,7 @@ class RadianceObj:
             +" LON: " + str(lon) + " Elev: " + str(elev) + "\n"
             "# Sun position calculated w. PVLib\n" + \
             "!gendaylit -ang %s %s" %(sunalt, sunaz)) + \
-            " -W %s %s -g %s -O 1 %s \n" % (dni, dhi, self.ground.ReflAvg, skytype) + \
+            " -W %s %s -g %s -O 1 \n" % (dni, dhi, self.ground.normval/2.0) + \
             "skyfunc glow sky_mat\n0\n0\n4 %0.3f %0.3f %0.3f 0\n" % (skyRrefl, skyGrefl, skyBrefl) + \
             "\nsky_mat source sky\n0\n0\n4 0 0 1 180\n" + \
             '\nskyfunc glow ground_glow\n0\n0\n4 ' + \
@@ -838,7 +840,7 @@ class RadianceObj:
             "\nvoid plastic %s\n0\n0\n5 %0.3f %0.3f %0.3f 0 0\n" %(
             self.ground.ground_type, self.ground.Rrefl, self.ground.Grefl, self.ground.Brefl) +\
             "\n%s ring groundplane\n" % (self.ground.ground_type) +\
-            '0\n0\n8\n0 0 0\n0 0 1\n0 400'
+            '0\n0\n8\n0 0 -0.002\n0 0 1\n0 100'
 
         time = metdata.datetime[timeindex]
         filename = str(time)[5:-12].replace('-','_').replace(' ','_')
