@@ -840,7 +840,7 @@ class RadianceObj:
             "\nvoid plastic %s\n0\n0\n5 %0.3f %0.3f %0.3f 0 0\n" %(
             self.ground.ground_type, self.ground.Rrefl, self.ground.Grefl, self.ground.Brefl) +\
             "\n%s ring groundplane\n" % (self.ground.ground_type) +\
-            '0\n0\n8\n0 0 -0.002\n0 0 1\n0 100'
+            '0\n0\n8\n0 0 0\n0 0 1\n0 70'
 
         time = metdata.datetime[timeindex]
         filename = str(time)[5:-12].replace('-','_').replace(' ','_')
@@ -1115,8 +1115,8 @@ class RadianceObj:
 
         return trackerdict
 
-    def gendaylit1axis(self, metdata=None, trackerdict=None, startdate=None, colorsky=False,
-                       enddate=None, debug=False, hpc=False):
+    def gendaylit1axis(self, metdata=None, trackerdict=None, startdate=None, 
+                       enddate=None, debug=False, hpc=False, colorsky=False):
         """
         1-axis tracking implementation of gendaylit.
         Creates multiple sky files, one for each time of day.
@@ -3635,6 +3635,9 @@ class AnalysisObj:
         # Internal scene parameters are stored in scene.sceneDict. Load these into local variables
         sceneDict = scene.sceneDict
         #moduleDict = scene.moduleDict  # not needed?
+        
+        # ~ print("moduleAnalysis() sceneDict: ")
+        # ~ print(sceneDict)
 
 
         azimuth = sceneDict['azimuth']
@@ -3645,6 +3648,8 @@ class AnalysisObj:
         originy = sceneDict['originy']
         modulez = sceneDict['modulez']
         framez = sceneDict['framez']
+        if framez == 0:
+            framez = modulez
 
        # offset = moduleDict['offsetfromaxis']
         offset = scene.offsetfromaxis
@@ -3792,6 +3797,11 @@ class AnalysisObj:
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc, 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':back_orient }
 
+        # ~ print("moduleAnalysis() frontscan: ")
+        # ~ print(frontscan)
+        # ~ print("moduleAnalysis() backscan: ")
+        # ~ print(backscan)
+		
         return frontscan, backscan
 
     def analysis(self, octfile, name, frontscan, backscan, plotflag=False, accuracy='low', rtrace_cmd=''):
