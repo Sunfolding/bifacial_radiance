@@ -1250,7 +1250,7 @@ class RadianceObj:
         return trackerdict
 
 
-    def makeOct(self, filelist=None, octname=None, hpc=False):
+    def makeOct(self, filelist=None, octname=None, hpc=False, frozen=False):
         """
         Combine everything together into a .oct file
 
@@ -1263,6 +1263,8 @@ class RadianceObj:
         hpc : bool
             Default False. Activates a wait period in case one of the files for
             making the oct is still missing.
+        frozen : bool
+            Default False.  If true, passes -f option to oconv to create frozen octree
 
         Returns
         -------
@@ -1276,6 +1278,10 @@ class RadianceObj:
             filelist = self.getfilelist()
         if octname is None:
             octname = self.name
+            
+        fopt = ''
+        if frozen is True:
+            fopt = ' -f '
 
         debug = False
         #JSS. With the way that the break is handled now, this will wait the 10 for all the hours
@@ -1305,7 +1311,7 @@ class RadianceObj:
             self.octfile = None
             return None
 
-        cmd = 'oconv ' + ' '.join(filelist)
+        cmd = 'oconv ' + fopt + ' '.join(filelist)
         with open('%s.oct' % (octname), "w") as f:
             _,err = _popen(cmd, None, f)
             #TODO:  exception handling for no sun up
@@ -1320,7 +1326,7 @@ class RadianceObj:
         self.octfile = '%s.oct' % (octname)
         return '%s.oct' % (octname)
 
-    def makeOct1axis(self, trackerdict=None, singleindex=None, customname=None, hpc=False):
+    def makeOct1axis(self, trackerdict=None, singleindex=None, customname=None, hpc=False, frozen=False):
         """
         Combine files listed in trackerdict into multiple .oct files
 
@@ -1335,6 +1341,8 @@ class RadianceObj:
         hpc : bool
             Default False. Activates a wait period in case one of the files for
             making the oct is still missing.
+        frozen : bool
+            Default False.  If true, passes -f option to oconv to create frozen octree
 
         Returns
         -------
@@ -1360,7 +1368,7 @@ class RadianceObj:
             try:
                 filelist = self.materialfiles + [trackerdict[index]['skyfile'], trackerdict[index]['radfile']]
                 octname = '1axis_%s%s'%(index, customname)
-                trackerdict[index]['octfile'] = self.makeOct(filelist, octname, hpc)
+                trackerdict[index]['octfile'] = self.makeOct(filelist, octname, hpc, frozen)
             except KeyError as e:
                 print('Trackerdict key error: {}'.format(e))
 
