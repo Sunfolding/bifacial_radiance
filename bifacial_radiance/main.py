@@ -1865,7 +1865,7 @@ class RadianceObj:
         with open(customradfile, 'wb') as f:
             f.write(text.encode('ascii'))
 
-        print("\nCustom Object Name", customradfile)
+        # ~ print("\nCustom Object Name", customradfile)
         self.customradfile = customradfile
         return customradfile
 
@@ -3076,6 +3076,7 @@ class MetObj:
                                         'surf_tilt':self.surface_tilt[i],
                                         'theta':self.tracker_theta[i],
                                         'ghi':self.ghi[i],
+                                        'dni':self.dni[i],
                                         'dhi':self.dhi[i]
                                         }
 
@@ -3468,7 +3469,8 @@ class AnalysisObj:
             print('_irrPlot accuracy options: "low" or "high"')
             return({})
 
-
+        # ~ print("rtrace execution:")
+        # ~ print("{} {}".format(cmd, linepts))
 
         temp_out,err = _popen(cmd,linepts.encode())
         if err is not None:
