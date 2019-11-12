@@ -56,7 +56,7 @@ logging.basicConfig()
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
 
-import os, datetime, sys
+import os, datetime, sys, math
 from subprocess import Popen, PIPE  # replacement for os.system()
 import pandas as pd
 import numpy as np 
@@ -1586,7 +1586,7 @@ class RadianceObj:
                         # ~ text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
                         
                     if hasFrame is True:
-						# Top horizontal
+                        # Top horizontal
                         text +='\r\n!genbox ModuleFrame frametop {} {} {} '.format(framex-(framewidth*2), framewidth, framez)
                         text+='| xform -t {} {} {} '.format(-(framex-(framewidth*2))/2.0, (framey*Ny/2.0)-(ygap*(Ny-1)/2.0) - framewidth, offsetfromaxis)
                         # Bottom horizontal
@@ -2151,6 +2151,7 @@ class RadianceObj:
                                 '"landscape" panel x should be > than y.\n\n')
 
         if 'hub_height' in sceneDict:
+            # ~ print(">>>> makeScene1axis() hub_height: {}".format(sceneDict['hub_height']))
             if 'height' in sceneDict:
                 if 'clearance_height' in sceneDict:
                     print("sceneDict Warning: 'hub_height', 'clearance_height'"+
@@ -2261,10 +2262,9 @@ class RadianceObj:
                 radname = '1axis%s'%(time,)
 
                 # Calculating clearance height for this time.
-                height = hubheight - 0.5* math.sin(abs(theta) * math.pi / 180) \
-                        * scene.sceney + scene.offsetfromaxis \
-                        * math.sin(abs(theta)*math.pi/180)
-
+                height = hubheight - 1/2*scene.sceney*math.sin(math.radians(abs(theta))) + scene.offsetfromaxis*math.sin(math.radians(abs(theta)))
+                # ~ print(">>>> makeScene1axis() clearance_height: {}".format(height))
+                
                 if trackerdict[time]['ghi'] > 0:
                     trackerdict[time]['clearance_height'] = height
                     try:
@@ -2790,6 +2790,7 @@ class SceneObj:
                     del sceneDict['height']
         else:
             if 'hub_height' in sceneDict:
+                # ~ print(">>>> _makeSceneNxR() tilt: {}, hub_height: {}".format(tilt, sceneDict['hub_height']))
                 if 'clearance_height' in sceneDict:
                     print("Warning: Passed 'hub_height' and 'clearance_height'."+
                           " Proceeding with 'hub_height' and removing 'clearance_height' from dictionary")
@@ -2799,6 +2800,7 @@ class SceneObj:
                     hubheight = sceneDict['hub_height']
             else:
                 if 'clearance_height' in sceneDict:
+                    # ~ print(">>>> _makeSceneNxR() tilt: {}, clearance_height: {}".format(tilt, sceneDict['clearance_height']))
                     hubheight = sceneDict['clearance_height'] + \
                         0.5* np.sin(abs(tilt) * np.pi / 180) *  self.sceney \
                         - self.offsetfromaxis*np.sin(abs(tilt)*np.pi/180)
@@ -2812,6 +2814,7 @@ class SceneObj:
         # this is clearance_height, used for the title.
         height = hubheight - 0.5* np.sin(abs(tilt) * np.pi / 180) \
             * self.sceney + self.offsetfromaxis*np.sin(abs(tilt)*np.pi/180)
+        # ~ print(">>>> _makeSceneNxR() height: {}".format(height))
 
         if 'pitch' in sceneDict:
             pitch = sceneDict['pitch']
@@ -3696,11 +3699,13 @@ class AnalysisObj:
                 print ("sceneDict warning: 'hub_height' and 'clearance_height"+
                        "' passed to moduleAnalysis(). Using 'hub_height' "+
                        "instead of 'clearance_height'")
+            # ~ print(">>>> moduleAnalysis() tilt:{}, hub_height:{}, sceney: {}, offset: {}, framez: {}, modulez: {}, height: {}"\
+                # ~ .format(tilt, sceneDict['hub_height'], sceney, offset, framez, modulez, height))
         else:
             if 'clearance_height' in sceneDict:
-                height = sceneDict['clearance_height'] + 0.5* \
-                    np.sin(abs(tilt) * np.pi / 180) * \
-                    sceney - offset*np.sin(abs(tilt)*np.pi/180)
+                height = sceneDict['clearance_height'] + 1/2*sceney*np.sin(math.radians(abs(tilt))) - offset*np.sin(math.radians(abs(tilt)))
+                # ~ print(">>>> moduleAnalysis() tilt: {}, clearance_height:{}, sceney: {}, offset: {}, framez: {}, modulez: {}, height: {}"\
+                    # ~ .format(tilt, sceneDict['clearance_height'], sceney, offset, framez, modulez, height))
 
                 if 'height' in sceneDict:
                     print("sceneDict warning: 'height' is deprecated, using"+
@@ -3712,9 +3717,7 @@ class AnalysisObj:
                           "Assuming this was clearance_height that was passed"+
                           " as 'height' and renaming it in sceneDict for "+
                           "moduleAnalysis()")
-                    height = sceneDict['height'] + 0.5* np.sin(abs(tilt) * \
-                                      np.pi / 180) * sceney - offset * \
-                                      np.sin(abs(tilt)*np.pi/180)
+                    height = sceneDict['height'] + 1/2*sceney*np.sin(math.radians(abs(tilt))) - offset*np.sin(math.radians(abs(tilt)))
                 else:
                     print("Isue with moduleAnalysis routine. No hub_height "+
                           "or clearance_height passed (or even deprecated "+
@@ -3761,14 +3764,14 @@ class AnalysisObj:
         
 
         # Axis of rotation Offset (if offset is not 0) for the front of the module
-        x3 = (offset + framez + 0.004) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
+        x3 = (offset + framez + 0.002) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
         y3 = (offset + framez) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
-        z3 = (offset + framez + 0.004) * np.cos(tilt*dtor)
+        z3 = (offset + framez + 0.002) * np.cos(tilt*dtor)
         
         # Axis of rotation offset for the back of the module
-        x4 = (offset + (framez-modulez) - 0.004) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
-        y4 = (offset + (framez-modulez) - 0.004) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
-        z4 = (offset + (framez-modulez) - 0.004) * np.cos(tilt*dtor)
+        x4 = (offset + (framez-modulez) - 0.002) * np.sin(tilt*dtor) * np.sin((azimuth)*dtor)
+        y4 = (offset + (framez-modulez) - 0.002) * np.sin(tilt*dtor) * np.cos((azimuth)*dtor)
+        z4 = (offset + (framez-modulez) - 0.002) * np.cos(tilt*dtor)
 
         xstartfront = x1 + x2 + x3 + originx
         xstartback = x1 + x2 + x4 + originx
@@ -3781,6 +3784,7 @@ class AnalysisObj:
         yinc = -(sceney/(sensorsy + 1.0)) * np.cos((tilt)*dtor) * np.cos((azimuth)*dtor)
         zinc = (sceney/(sensorsy + 1.0)) * np.sin(tilt*dtor)
 
+        # ~ debug = True
         if debug is True:
             print("Azimuth", azimuth)
             print("Coordinate Center Point of Desired Panel before azm rotation", x0, y0)
@@ -3795,15 +3799,15 @@ class AnalysisObj:
         zdir = np.cos((tilt)*dtor)
         xdir = np.sin((tilt)*dtor) * np.cos((azimuth)*dtor)
         ydir = np.sin((tilt)*dtor) * np.sin((azimuth)*dtor)
-        front_orient = '%0.3f %0.3f %0.3f' % (-xdir, -ydir, -zdir)
-        back_orient = '%0.3f %0.3f %0.3f' % (xdir, ydir, zdir)
+        front_orient = '%0.5f %0.5f %0.5f' % (-xdir, -ydir, -zdir)
+        back_orient = '%0.5f %0.5f %0.5f' % (xdir, ydir, zdir)
         
-        frontscan = {'xstart': xstartfront+xinc, 'ystart': ystartfront+yinc+ yoffset,
-                     'zstart': zstartfront + zinc,
+        frontscan = {'xstart': xstartfront + xinc/2, 'ystart': ystartfront + yinc/2 + yoffset,
+                     'zstart': zstartfront + zinc/2,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc , 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':front_orient }
-        backscan = {'xstart': xstartback + xinc, 'ystart':  ystartback+yinc+ yoffset,
-                     'zstart': zstartback + zinc,
+        backscan = {'xstart': xstartback + xinc/2, 'ystart':  ystartback + yinc/2 + yoffset,
+                     'zstart': zstartback + zinc/2,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc, 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':back_orient }
 
@@ -3811,7 +3815,7 @@ class AnalysisObj:
         # ~ print(frontscan)
         # ~ print("moduleAnalysis() backscan: ")
         # ~ print(backscan)
-		
+        
         return frontscan, backscan
 
     def analysis(self, octfile, name, frontscan, backscan, plotflag=False, accuracy='low', rtrace_cmd=''):
