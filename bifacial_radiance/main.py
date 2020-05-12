@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-from __future__ import division  # avoid integer division issues.
-from __future__ import absolute_import # this module uses absolute imports
+
 """
 @author: cdeline
 
@@ -9,7 +8,7 @@ bifacial_radiance.py - module to develop radiance bifacial scenes, including gen
 5/1/2017 - standalone module
 
 Pre-requisites:
-    This software is written in Python 2.7 leveraging many Anaconda tools (e.g. pandas, numpy, etc)
+    This software is written for Python >3.6 leveraging many Anaconda tools (e.g. pandas, numpy, etc)
 
     *RADIANCE software should be installed from https://github.com/NREL/Radiance/releases
 
@@ -186,6 +185,7 @@ class RadianceObj:
             self.name = self.nowstr  # set default filename for output files
         else:
             self.name = name
+        self.basename = name # add backwards compatibility for prior versions
         #self.__name__ = self.name  #optional info
         #self.__str__ = self.__name__   #optional info
         if path is None:
@@ -677,14 +677,16 @@ class RadianceObj:
                                 'ghi':'GHI'
                                 }, inplace=True)
 
+        tempTMYtitle = 'epw_temp.csv'
         # Hpc only works when daydate is passed through. Daydate gives single-
         # day run option with zero GHI values removed.
         if daydate is not None: 
             dd = re.split('_|/',daydate)
             starttime = dd[0]+'_'+dd[1] + '_00'
             endtime = dd[0]+'_'+dd[1] + '_23'
+            tempTMYtitle = 'epw_temp_'+dd[0]+'_'+dd[1]+'.csv'
         
-        tmydata_trunc = self._saveTempTMY(tmydata,'epw_temp.csv', 
+        tmydata_trunc = self._saveTempTMY(tmydata,filename=tempTMYtitle, 
                                           starttime=starttime, endtime=endtime)
         if daydate is not None:  # also remove GHI = 0 for HPC daydate call.
             tmydata_trunc = tmydata_trunc[tmydata_trunc.GHI > 0]
@@ -1142,7 +1144,7 @@ class RadianceObj:
 
         """
         
-        import dateutil.parser as parser # used to convert startdate and enddate
+        #import dateutil.parser as parser # used to convert startdate and enddate
         import re
 
         if metdata is None:
@@ -1189,7 +1191,10 @@ class RadianceObj:
 
         trackerdict2={}
         for i in range(startindex,endindex+1):
-            time = metdata.datetime[i]
+            try:
+                time = metdata.datetime[i]
+            except IndexError:  #out of range error
+                break  # 
             filename = str(time)[5:-12].replace('-','_').replace(' ','_')
             self.name = filename
 
@@ -1569,22 +1574,7 @@ class RadianceObj:
                     text = '! genbox black {} {} {} {} '.format(name2, modulex, moduley, modulez)
                     text +='| xform -t {} {} {} '.format(-modulex/2.0, (-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis+modulezoffset)
                     text += '-a {} -t 0 {} 0'.format(Ny, moduley+ygap)
-                    
-                    # Antimatter seems to mess with rtrace for some reason
-                    # Create cavity on rear of module from antimatter. Note we need to have the antimatter extend just outside the module to ensure that it works properly,
-                    # hence the addition of 0.001m depth
-                    # ~ if hasFrame is True:
-                        # ~ text +='\r\n!genbox ModuleFrame moduleframe {} {} {} '.format(framex, framey, framez)
-                        # ~ text +='| xform -t {} {} {} '.format(-framex/2.0, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
-                        # ~ text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
-                        # ~ # antimatter needs to be slightly bigger in z than the object we are cutting a hole in and smaller in xy to overlap with the module material
-                        # ~ cutoutx = round(modulex-0.002,8)
-                        # ~ cutouty = round(moduley-0.002,8)
-                        # ~ cutoutz = round(framez+0.002,8)
-                        # ~ text += '\r\n!genbox frame_cutout frameopening {} {} {} '.format(cutoutx, cutouty, cutoutz) 
-                        # ~ text +='| xform -t {} {} {} '.format(-(round(cutoutx-0.001,8))/2.0, (-round(cutouty-0.001,8)*Ny/2.0)-(ygap*(Ny-1)/2.0), round(offsetfromaxis-0.001,8))
-                        # ~ text += '-a {} -t 0 {} 0'.format(Ny, framey+ygap)
-                        
+ 
                     if hasFrame is True:
                         # Top horizontal
                         text +='\r\n!genbox ModuleFrame frametop {} {} {} '.format(framex-(framewidth*2), framewidth, framez)
@@ -1819,6 +1809,7 @@ class RadianceObj:
                                     'material':material
                               }
                       }
+ 
 
         filedir = os.path.join(DATA_PATH, 'module.json') 
         with open(filedir) as configfile:
@@ -3887,154 +3878,50 @@ def runJob(daydate):
         #exit(1)
 
     print("entering runJob on node %s" % slurm_nnodes)
-    metdata = demo.readEPW(epwfile=epwfile, hpc=hpc, daydate=daydate)
+    
+    demo.readEPW(epwfile=epwfile, hpc=hpc, daydate=daydate)
 
+    print("1. Read EPW Finished")
+    
     trackerdict = demo.set1axis(cumulativesky=cumulativesky,
                                 axis_azimuth=axis_azimuth,
                                 limit_angle=limit_angle,
                                 angledelta=angledelta,
                                 backtrack=backtrack,
                                 gcr=gcr)
-
+    
+    print("2. set1axis Done")
+    
     trackerdict = demo.gendaylit1axis(hpc=hpc)
 
-    trackerdict = demo.makeScene1axis(trackerdict=trackerdict,
-                                      moduletype=moduletype,
-                                      sceneDict=sceneDict,
-                                      cumulativesky=cumulativesky,
-                                      hpc=hpc)
+    print("3. Gendalyit1axis Finished")
+    
+    #cdeline comment: previous version passed trackerdict into makeScene1axis.. 
+    demo.makeScene1axis(moduletype=moduletype, sceneDict=sceneDict,
+                        cumulativesky = cumulativesky, hpc = hpc)
+
+    print("4. MakeScene1axis Finished")
 
     demo.makeOct1axis(trackerdict, hpc=True)
 
     trackerdict = demo.analysis1axis(trackerdict,
                                      modWanted=modWanted,
                                      rowWanted=rowWanted,
-                                     sensorsy=sensorsy)
+                                     sensorsy=sensorsy, customname=daydate)
+    print("5. Finished ", daydate)
 
-def hpcExample():   
-    """ 
-    Example of HPC Job call
-    
-    This allocates the day_dates generated to the different codes in as many nodes are available. 
-    Works inside and outside of slurm for testing (but set FullYear to False so it only does two days)
-    Full year takes 1 min in 11 Nodes.
-           
-    Variables stored in input_bf.py. First configure this on top:
-    
-    .. code-block :: python
-    
-        if __name__ == "__main__": #in case this is run as a script not a module.
-            from readepw import readepw  
-            from load import loadTrackerDict
-            from input_bf import *
 
-        else: # module imported or loaded normally
-            from bifacial_radiance.readepw import readepw # epw file reader from pvlib development forums  #module load format
-            from bifacial_radiance.load import loadTrackerDict
-            from bifacial_radiance.input_bf import *
-                
-    Procedure for a Full Year Run (~1 min in 11 nodes of 36 cores each > 365 days):
-
-    .. code-block :: python
-
-        Connect to Eagle
-        - $ cd bifacial_radiance/bifacial_radiance
-        - $ srun -A pvsoiling -t 5 -N 11 --pty bash                  
-        - $ module load conda
-        - $ . activate py3
-        - $ srun bifacial_radiance2.py
-    
-    Procedure for testing before joining SLURM:
-    
-    .. code-block :: python
-
-        change fullYear to False.
-        - $ cd bifacial_radiance/bifacial_radiance
-        - $ module load conda
-        - $ . activate py3
-        - $ nano bifacial_radiance.py    
-        - $ python bifacial_radiance2.py       
-    
-    .. warning::
-        Do not load conda twice nor activate .py3 twice.
-        (following above) Either activate conda or .py3 in the login node
-        or on the slurm
-   
-    """
-    
-    import multiprocessing as mp
-
-    daylist = []
-
-    fullYear = True # running faster testing on HPC ~ only 2 days.
-
-    if fullYear:
-        start = datetime.datetime.strptime("01-01-2014", "%d-%m-%Y")
-        end = datetime.datetime.strptime("31-12-2014", "%d-%m-%Y") # 2014 not a leap year.
-        daylist.append('12_31')     # loop doesn't add last day. Adding it at the beginning because why not.
-        daylimit = 365
-    else:
-        start = datetime.datetime.strptime("14-02-2014", "%d-%m-%Y")
-        end = datetime.datetime.strptime("26-02-2014", "%d-%m-%Y") # 2014 not a leap year.
-        daylimit = 1
-    date_generated = [start + datetime.timedelta(days=x) for x in range(0, (end-start).days)]
-    for date in date_generated:
-        daylist.append(date.strftime("%m_%d"))
-
-    #  print("This is daydate %s" % (daydate))
-    demo = RadianceObj(simulationname,path=testfolder)
-    demo.setGround(albedo)
-#   HPC IMPORTANT NOTE:
-#   Multiple Nodes get confused when trying to write the JSON at the same time,
-#    so make sure moduletype is created before running slurm job for it to work.
-#   2 DO: Fix at some point of course.
-#    moduleDict=demo.makeModule(name=moduletype,x=x,y=y,bifi=bifi,
-#                           torquetube=torqueTube, diameter = diameter, tubetype = tubetype,
-#                           material = torqueTubeMaterial, zgap = zgap, numpanels = numpanels, ygap = ygap,
-#                           rewriteModulefile = True, xgap=xgap,
-#                           axisofrotationTorqueTube=axisofrotationTorqueTube, cellLevelModule=cellLevelModule,
-#                           numcellsx=numcellsx, numcellsy = numcellsy)
-    sceneDict = {'module_type':moduletype, 'pitch': pitch, 'hub_height':hub_height, 'nMods':nMods, 'nRows':nRows}
-
-    cores = mp.cpu_count()
-    pool = mp.Pool(processes=cores)
-    res = None
-
-    try:
-        nodeID = int(os.environ['SLURM_NODEID'])
-    except KeyError:
-        nodeID = 0 # in case testing for hpc not on slurm yet.
-
-    hpccores = 36 # this is valid for Eagle. Find out how many cores are in each node of your HPC to make this work.
-    
-    day_index = (hpccores * (nodeID))
-
-    for job in range(cores):
-        if day_index+job>=len(daylist): # this makes sure no days above 356 are attempted:
-            break
-        pool.apply_async(runJob, (daylist[day_index+job],))
-
-    pool.close()
-    pool.join()
-    pool.terminate()
-
-def quickExample():
+def quickExample(testfolder=None):
     """
     Example of how to run a Radiance routine for a simple rooftop bifacial system
 
     """
-    def _interactive_directory(title=None):
-        # Tkinter directory picker.  Now Py3.6 compliant!
-        import tkinter
-        from tkinter import filedialog
-        root = tkinter.Tk()
-        root.withdraw() #Start interactive file input
-        root.attributes("-topmost", True) #Bring to front
-        return filedialog.askdirectory(parent=root, title=title)
 
     import bifacial_radiance
-    testfolder = _interactive_directory(title = 'Select or create an empty directory for the Radiance tree')
-    #    testfolder = r'C:\Users\sayala\Documents\RadianceScenes\Demo3'
+    
+    if testfolder == None:
+        testfolder = bifacial_radiance.main._interactive_directory(title = 'Select or create an empty directory for the Radiance tree')
+
     demo = bifacial_radiance.RadianceObj('simple_panel',path = testfolder)  # Create a RadianceObj 'object'
 
     #    A=load_inputvariablesfile()
@@ -4075,4 +3962,59 @@ def quickExample():
     print('Annual bifacial ratio average:  %0.3f' %(
             sum(analysis.Wm2Back) / sum(analysis.Wm2Front) ) )
 
+    return analysis
 
+
+if __name__ == "__main__":
+    '''
+    Example of how to run a Radiance routine for a simple rooftop bifacial system
+
+    '''
+    import multiprocessing as mp
+        
+    #  print("This is daydate %s" % (daydate))
+    demo = RadianceObj(simulationname,path=testfolder)
+    #epwfile = demo.getEPW(44, -110)
+    #print(epwfile)
+    demo.setGround(albedo)
+    # metdata = demo.readWeatherFile(epwfile)
+    # moduleDict=demo.makeModule(name=moduletype,x=x,y=y,bifi=bifi, 
+    #                       torquetube=torqueTube, diameter = diameter, tubetype = tubetype, 
+    #                       material = torqueTubeMaterial, zgap = zgap, numpanels = numpanels, ygap = ygap, 
+    #                       rewriteModulefile = True, xgap=xgap, 
+    #                       axisofrotationTorqueTube=axisofrotationTorqueTube)
+    
+    sceneDict = {'module_type':moduletype, 'pitch': pitch, 'hub_height':hub_height, 'nMods':nMods, 'nRows':nRows}  
+    
+    cores = mp.cpu_count()
+    pool = mp.Pool(processes=cores)
+    res = None
+    print ("This is cores", cores)
+
+    try:
+        nodeID = int(os.environ['SLURM_NODEID'])
+    except: 
+        nodeID = 0
+    day_index = (36 * (nodeID))
+    
+    # doing less days for testing
+    start = datetime.datetime.strptime("01-01-2014", "%d-%m-%Y")
+    end = datetime.datetime.strptime("31-12-2014", "%d-%m-%Y") # 2014 not a leap year.
+    #start = datetime.datetime.strptime("14-02-2014", "%d-%m-%Y")
+    #end = datetime.datetime.strptime("26-02-2014", "%d-%m-%Y") # 2014 not a leap year.
+    date_generated = [start + datetime.timedelta(days=x) for x in range(0, (end-start).days)]
+    
+    daylist = []
+    for date in date_generated:
+        daylist.append(date.strftime("%m_%d"))
+    # loop doesn't add last day :
+
+#    print (daylist)
+    for job in range(cores):
+        if day_index+job>=60: #len(daylist):
+            break
+        pool.apply_async(runJob, (daylist[day_index+job],))
+        
+    pool.close()
+    pool.join()
+    pool.terminate()
