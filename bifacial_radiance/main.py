@@ -2031,7 +2031,7 @@ class RadianceObj:
 
 
     def makeScene1axis(self, trackerdict=None, moduletype=None, sceneDict=None,
-                       cumulativesky=None, nMods=None, nRows=None, hpc=False):
+                       cumulativesky=None, hpc=False):
         """
         Creates a SceneObj for each tracking angle which contains details of the PV
         system configuration including row pitch, hub_height, nMods per row, nRows in the system...
@@ -2083,20 +2083,6 @@ class RadianceObj:
                   'and .pitch or .gcr')
             return
 
-        # Check for deprecated variables and assign to dictionary.
-        if nMods is not None or nRows is not None:
-            print("nMods and nRows input is being deprecated. Please include"+
-                  "nMods and nRows inside of your sceneDict definition")
-            print("Meanwhile, this funciton will check if SceneDict has nMods"+
-                  " and nRows and will use that as values, and if not, "+
-                  "it will assign nMods and nRows to it.")
-
-            if sceneDict['nMods'] is None:
-                sceneDict['nMods'] = nMods
-
-            if sceneDict['nRows'] is None:
-                sceneDict['nRows'] = nRows
-
         # If no nRows or nMods assigned on deprecated variable or dictionary,
         # assign default.
         if 'nRows' not in sceneDict:
@@ -2129,7 +2115,6 @@ class RadianceObj:
                   'sceneDict, nMods, nRows). ')
             self.printModules() #print available module types
             return
-            
 
 
         if 'orientation' in sceneDict:
@@ -2404,7 +2389,7 @@ class RadianceObj:
         # Save compiled results using _saveresults
         if singleindex is None:
         
-            print ("Saving a cumulative-results file in the main simulatoin folder." +
+            print ("Saving a cumulative-results file in the main simulation folder." +
                    "This adds up by sensor location the irradiance over all hours " +
                    "or configurations considered." +
                    "\nWarning: This file saving routine does not clean results, so "+
@@ -2432,29 +2417,31 @@ class RadianceObj:
             else: # trackerkeys are day/hour/min, and there's no easy way to find a 
                 # tilt of 0, so making a fake linepoint object for tilt 0 
                 # and then saving.
-                cumscene = trackerdict[trackerkeys[0]]['scene']
-                cumscene.sceneDict['tilt']=0
-                cumscene.sceneDict['clearance_height'] = self.hub_height
-                cumanalysisobj = AnalysisObj()
-                frontscan, backscan = cumanalysisobj.moduleAnalysis(scene=cumscene, modWanted=modWanted, rowWanted=rowWanted, sensorsy = sensorsy)
-                x,y,z = cumanalysisobj._linePtsArray(frontscan)
-                x,y,rearz = cumanalysisobj._linePtsArray(backscan)
-    
-                frontcum = pd.DataFrame()
-                rearcum = pd.DataFrame()
-                frontcum ['x'] = x
-                frontcum ['y'] = y
-                frontcum ['z'] = z
-                frontcum ['mattype'] = trackerdict[trackerkeys[0]]['AnalysisObj'].mattype
-                frontcum ['Wm2'] = self.Wm2Front
-                rearcum ['x'] = x
-                rearcum ['y'] = y
-                rearcum ['z'] = rearz
-                rearcum ['mattype'] = trackerdict[trackerkeys[0]]['AnalysisObj'].rearMat
-                rearcum ['Wm2'] = self.Wm2Back
-                print ("\nSaving Cumulative results" )
-                cumanalysisobj._saveResultsCumulative(frontcum, rearcum, savefile=cumfilename)            
+                try:
+                    cumscene = trackerdict[trackerkeys[0]]['scene']
+                    cumscene.sceneDict['tilt']=0
+                    cumscene.sceneDict['clearance_height'] = self.hub_height
+                    cumanalysisobj = AnalysisObj()
+                    frontscan, backscan = cumanalysisobj.moduleAnalysis(scene=cumscene, modWanted=modWanted, rowWanted=rowWanted, sensorsy = sensorsy)
+                    x,y,z = cumanalysisobj._linePtsArray(frontscan)
+                    x,y,rearz = cumanalysisobj._linePtsArray(backscan)
         
+                    frontcum = pd.DataFrame()
+                    rearcum = pd.DataFrame()
+                    frontcum ['x'] = x
+                    frontcum ['y'] = y
+                    frontcum ['z'] = z
+                    frontcum ['mattype'] = trackerdict[trackerkeys[0]]['AnalysisObj'].mattype
+                    frontcum ['Wm2'] = self.Wm2Front
+                    rearcum ['x'] = x
+                    rearcum ['y'] = y
+                    rearcum ['z'] = rearz
+                    rearcum ['mattype'] = trackerdict[trackerkeys[0]]['AnalysisObj'].rearMat
+                    rearcum ['Wm2'] = self.Wm2Back
+                    print ("\nSaving Cumulative results" )
+                    cumanalysisobj._saveResultsCumulative(frontcum, rearcum, savefile=cumfilename)            
+                except:
+                    print("Not able to save a cumulative result for this simulation.")
         return trackerdict
 
 
@@ -2463,7 +2450,9 @@ class RadianceObj:
 class GroundObj:
     """
     Class to set and return details for the ground surface materials and reflectance.
-    If albedo is passed, it is used as default.
+    If 1 albedo value is passed, it is used as default.
+    If 3 albedo values are passed, they are assigned to each of the three wavelength placeholders (RGB),
+    
     If material type is known, it is used to get reflectance info.  
     if material type isn't known, material_info.list is returned
 
@@ -2509,20 +2498,37 @@ class GroundObj:
         try:
             albedo = float(materialOrAlbedo)
             if not (0 < albedo < 1):
+                albedo = None
                 materialOrAlbedo = None
+            else:
+                albedo = [albedo, albedo, albedo]
         except TypeError:
             # nothing passed
-            albedo = None
+            try: 
+                if len(materialOrAlbedo) == 3:
+                    if not ((0 < float(materialOrAlbedo[0]) < 1) and 
+                            (0 < float(materialOrAlbedo[1]) < 1) and 
+                            (0 < float(materialOrAlbedo[2]) < 1)) :
+                        print("Reflectivity values must be between 0 and 1")
+                        albedo = None
+                    else:
+                        albedo = materialOrAlbedo
+                else:
+                    print("Wrong albedo type passed. Either a single value or a ",
+                          "list of 3 values expected (0.62 or [0.62, 0.62, 0.62] for each wavelength")
+            except:
+                  # nothing passed
+                  albedo = None
         except ValueError:
             # material string passed
             albedo = None
 
         if albedo is not None:
-            self.Rrefl = albedo
-            self.Grefl = albedo
-            self.Brefl = albedo
-            self.normval = _normRGB(albedo,albedo,albedo)
-            self.ReflAvg = albedo
+            self.Rrefl = albedo[0]
+            self.Grefl = albedo[1]
+            self.Brefl = albedo[2]
+            self.normval = _normRGB(albedo[0],albedo[1],albedo[2])
+            self.ReflAvg = np.round(np.mean(albedo),4)
             self.ground_type = 'custom'
 
         else:
@@ -2553,7 +2559,7 @@ class GroundObj:
                 self.Grefl = Grefl[index]
                 self.Brefl = Brefl[index]
             else:
-                print('Input albedo 0-1, or ground material names:'+str(keys))
+                print('Input albedo 0-1, albedo by wavelength [R, G, B], or ground material names:'+str(keys))
                 return None
 
 class SceneObj:
@@ -2807,14 +2813,18 @@ class SceneObj:
             * self.sceney + self.offsetfromaxis*np.sin(abs(tilt)*np.pi/180)
         # ~ print(">>>> _makeSceneNxR() height: {}".format(height))
 
-        if 'pitch' in sceneDict:
-            pitch = sceneDict['pitch']
-        else:
+        try: 
+            if sceneDict['pitch'] >0:
+                pitch = sceneDict['pitch'] 
+            else:
+                raise Exception('default to gcr')
+            
+        except:
 
             if 'gcr' in sceneDict:
                 pitch = np.round(self.sceney/sceneDict['gcr'],3)
             else:
-                raise Exception('Error: either `pitch` or `gcr` must be defined in sceneDict')
+                raise Exception('No valid `pitch` or `gcr` in sceneDict')
 
 
 
@@ -3500,7 +3510,7 @@ class AnalysisObj:
 
         return(out)
 
-    def _saveResults(self, data, reardata=None, savefile=None):
+    def _saveResults(self, data, reardata=None, savefile=None, RGB = False):
         """
         Function to save output from _irrPlot
         If rearvals is passed in, back ratio is saved
@@ -3514,12 +3524,23 @@ class AnalysisObj:
         if savefile is None:
             savefile = data['title'] + '.csv'
         # make dataframe from results
-        data_sub = {key:data[key] for key in ['x', 'y', 'z', 'Wm2', 'mattype']}
-        self.x = data['x']
-        self.y = data['y']
-        self.z = data['z']
-        self.mattype = data['mattype']
-        #TODO: data_sub front values don't seem to be saved to self.
+        
+        if RGB:
+            data_sub = {key:data[key] for key in ['x', 'y', 'z', 'r', 'g', 'b', 'Wm2', 'mattype']}
+            self.R = data['R']
+            self.G = data['G']
+            self.B = data['B']
+            self.x = data['x']
+            self.y = data['y']
+            self.z = data['z']
+            self.mattype = data['mattype']
+        else:
+            data_sub = {key:data[key] for key in ['x', 'y', 'z', 'Wm2', 'mattype']}
+            self.x = data['x']
+            self.y = data['y']
+            self.z = data['z']
+            self.mattype = data['mattype']
+            
         if reardata is not None:
             self.rearX = reardata['x']
             self.rearY = reardata['y']
@@ -3533,17 +3554,38 @@ class AnalysisObj:
             data_sub['Wm2Back'] = self.Wm2Back
             self.backRatio = [x/(y+.001) for x,y in zip(reardata['Wm2'],data['Wm2'])] # add 1mW/m2 to avoid dividebyzero
             data_sub['Back/FrontRatio'] = self.backRatio
-            df = pd.DataFrame.from_dict(data_sub)
-            df.to_csv(os.path.join("results", savefile), sep = ',',
-                      columns = ['x','y','z','rearZ','mattype','rearMat',
-                                 'Wm2Front','Wm2Back','Back/FrontRatio'],
-                                 index = False) # new in 0.2.3
+            
+            if RGB:
+                self.rearR = reardata['r']
+                data_sub['rearR'] = self.rearR
+                self.rearG = reardata['g']
+                data_sub['rearG'] = self.rearG
+                self.rearB = reardata['b']
+                data_sub['rearB'] = self.rearB
+                
+                df = pd.DataFrame.from_dict(data_sub)
+                df.to_csv(os.path.join("results", savefile), sep = ',',
+                          columns = ['x','y','z','rearZ','mattype','rearMat',
+                                     'Wm2Front','Wm2Back','Back/FrontRatio', 'R','G','B', 'rearR','rearG','rearB'],
+                                     index = False) # new in 0.2.3
+
+            else:
+                df = pd.DataFrame.from_dict(data_sub)
+                df.to_csv(os.path.join("results", savefile), sep = ',',
+                          columns = ['x','y','z','rearZ','mattype','rearMat',
+                                     'Wm2Front','Wm2Back','Back/FrontRatio'],
+                                     index = False) # new in 0.2.3
 
         else:
-            df = pd.DataFrame.from_dict(data_sub)
-            df.to_csv(os.path.join("results", savefile), sep = ',',
-                      columns = ['x','y','z', 'mattype','Wm2'], index = False)
-
+            if RGB:
+                df = pd.DataFrame.from_dict(data_sub)
+                df.to_csv(os.path.join("results", savefile), sep = ',',
+                          columns = ['x','y','z', 'mattype','Wm2', 'R', 'G', 'B'], index = False)
+            else:
+                df = pd.DataFrame.from_dict(data_sub)
+                df.to_csv(os.path.join("results", savefile), sep = ',',
+                          columns = ['x','y','z', 'mattype','Wm2'], index = False)
+                
         print('Saved: %s'%(os.path.join("results", savefile)))
         return os.path.join("results", savefile)
 
