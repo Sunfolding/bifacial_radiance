@@ -907,7 +907,7 @@ class RadianceObj:
             "\nvoid plastic %s\n0\n0\n5 %0.3f %0.3f %0.3f 0 0\n" %(
             self.ground.ground_type, self.ground.Rrefl[groundindex], self.ground.Grefl[groundindex], self.ground.Brefl[groundindex]) +\
             "\n%s ring groundplane\n" % (self.ground.ground_type) +\
-            '0\n0\n8\n0 0 0\n0 0 1\n0 70'
+            '0\n0\n8\n0 0 0\n0 0 1\n0 150'
 
         time = metdata.datetime[timeindex]
         filename = str(time)[5:-12].replace('-','_').replace(' ','_')
@@ -1612,9 +1612,7 @@ class RadianceObj:
 
         # Defaults for rotating system around module
         offsetfromaxis = 0      # Module Offset
-        
-        wall_thickness = 0.002 # dimension in meters for 'z' and 'c' section walls
-        
+
         # Update values for rotating system around torque tube.
         if axisofrotationTorqueTube == True:
             if torquetube is True:
@@ -1635,45 +1633,57 @@ class RadianceObj:
         modulez = 0.020
         moduley = y
         modulex = x
+        glassy = y
+        glassx = x
+        glassz = 0.0
         framez = 0.0
         framey = 0.0
         framex = 0.0
-        framewidth = 0.008
+        framewidth = 0.000
         modulezoffset = 0.0
         if hasFrame is True:
-            if not cellLevelModuleParams: 
-                framez = 0.033
-                modulez = 0.005
-                framex = x
-                framey = y
-                modulex -= framewidth
-                moduley -= framewidth
-                # ~ modulezoffset = round(framez-modulez+0.002,8)
-                modulezoffset = round(framez-modulez+0.0005,8)
-            else:
-                print('\n\n WARNING: cellLevelModuleParams is not compatible with hasFrame\n\n')
+            if cellLevelModuleParams:
+                print('\n\n ERROR: cellLevelModuleParams is not compatible with hasFrame\n\n')
+                exit(1)
+            framewidth = 0.011
+            framez = 0.033
+            modulez = 0.001
+            framex = x
+            framey = y
+            modulex -= framewidth
+            moduley -= framewidth
+            glassx -= framewidth
+            glassy -= framewidth
+
+        if glass is True:
+            glassz = 0.003
+            # leave 1mm gap between module material and each glass sheet and 1mm to top of frame
+            modulezoffset = round(framez-glassz-modulez-0.001-0.001,6)
+        else:
+            modulezoffset = round(framez-modulez,6)
             
         if text is None:
             
             if not cellLevelModuleParams:
                 try:
-                    text = '! genbox black {} {} {} {} '.format(name2, modulex, moduley, modulez)
-                    text +='| xform -t {} {} {} '.format(-modulex/2.0, (-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis+modulezoffset)
-                    text += '-a {} -t 0 {} 0'.format(Ny, moduley+ygap)
+                    text = f'\n!genbox black cellMaterial {modulex} {moduley} {modulez} '
+                    text+= f'| xform -t {-modulex/2.0:.5f} {(-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+modulezoffset:.5f} '
+                    if Ny > 1:
+                        text+= f'-a {Ny} -t 0 {moduley+ygap:.5f} 0 \n'
  
                     if hasFrame is True:
                         # Top horizontal
-                        text +='\r\n!genbox ModuleFrame frametop {} {} {} '.format(framex-(framewidth*2), framewidth, framez)
-                        text+='| xform -t {} {} {} '.format(-(framex-(framewidth*2))/2.0, (framey*Ny/2.0)-(ygap*(Ny-1)/2.0) - framewidth, offsetfromaxis)
+                        text+= f'\n!genbox ModuleFrame frameTop {framex-(framewidth*2):.5f} {framewidth} {framez} '
+                        text+= f'| xform -t {-(framex-(framewidth*2))/2.0:.5f} {(framey*Ny/2.0)-(ygap*(Ny-1)/2.0) - framewidth:.5f} {offsetfromaxis:.5f} '
                         # Bottom horizontal
-                        text +='\r\n!genbox ModuleFrame framebot {} {} {} '.format(framex-(framewidth*2), framewidth, framez)
-                        text+='| xform -t {} {} {} '.format(-(framex-(framewidth*2))/2.0, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
+                        text+= f'\n!genbox ModuleFrame frameBot {framex-(framewidth*2):.5f} {framewidth:.5f} {framez:.5f} '
+                        text+= f'| xform -t {-(framex-(framewidth*2))/2.0:.5f} {(-framey*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis:.5f} '
                         # Left side
-                        text +='\r\n!genbox ModuleFrame frame1 {} {} {} '.format(framewidth, framey, framez)
-                        text+='| xform -t {} {} {} '.format(-framex/2.0, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
+                        text+= f'\n!genbox ModuleFrame frameL {framewidth:.5f} {framey:.5f} {framez:.5f} '
+                        text+= f'| xform -t {-framex/2.0:.5f} {(-framey*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis:.5f} '
                         # Right side
-                        text +='\r\n!genbox ModuleFrame frame1 {} {} {} '.format(framewidth, framey, framez)
-                        text+='| xform -t {} {} {} '.format(framex/2.0-framewidth, (-framey*Ny/2.0)-(ygap*(Ny-1)/2.0), offsetfromaxis)
+                        text+= f'\n!genbox ModuleFrame frameR {framewidth:.5f} {framey:.5f} {framez:.5f} '
+                        text+= f'| xform -t {framex/2.0-framewidth:.5f} {(-framey*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis:.5f} '
                         
                     packagingfactor = 100.0
 
@@ -1703,6 +1713,18 @@ class RadianceObj:
                 packagingfactor = np.round((c['xcell']*c['ycell']*c['numcellsx']*c['numcellsy'])/(x*y), 2)
                 print("This is a Cell-Level detailed module with Packaging "+
                       "Factor of {} %".format(packagingfactor))
+                      
+            if glass is True:
+                # Top glass sheet
+                text += f'\n!genbox anti_refl_glass topglass {glassx} {glassy} {glassz} '
+                text+= f'| xform -t {-glassx/2.0:.5f} {(-glassy*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+framez-glassz-0.001:.5f} '
+                if Ny > 1:
+                    text+= f'-a {Ny} -t 0 {moduley+ygap:.5f} 0 '
+                # Bottom glass sheet - leave 1mm in between glass and module material
+                text += f'\n!genbox std_glass bottomglass {glassx} {glassy} {glassz} '
+                text+= f'| xform -t {-modulex/2.0:.5f} {(-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+framez-0.001-glassz-modulez-0.002-glassz-0.001:.5f} '
+                if Ny > 1:
+                    text+= f'-a {Ny} -t 0 {glassy+ygap:.5f} 0 '
 
             if torquetube is True and tubetype is not None:
                 
@@ -1786,17 +1808,7 @@ class RadianceObj:
                 else:
                     raise Exception("Incorrect torque tube type.  "+
                                     "Available options: 'square', 'round', 'oct', 'hex', 'rect', 'z', 'c'."+
-                                    "  Value entered: {}".format(tubetype))
-
-            if glass: 
-                    edge = 0.005                     
-                    text = text+'\r\n! genbox stock_glass {} {} {} {} '.format(name2+'_Glass',x+edge, y+edge, z+edge)
-                    text +='| xform -t 0 {} 0 ' . format(-edge/2.0)
-                    text +='| xform -t {} {} {} '.format(-x/2.0-edge/2.0 + cc,
-                                            (-y*Ny/2.0)-(ygap*(Ny-1)/2.0),
-                                            offsetfromaxis - 0.5*edge + 0.5*z)
-                    text += '-a {} -t 0 {} 0'.format(Ny, y+ygap)
-                
+                                    "  Value entered: {}".format(tubetype))             
 
                 
             text += customtext  # For adding any other racking details at the module level that the user might want.
@@ -3789,7 +3801,7 @@ class AnalysisObj:
         return (savefile)
 
     def moduleAnalysis(self, scene, modWanted=None, rowWanted=None,
-                       sensorsy=9.0, yoffset=0, debug=False):
+                       sensorsy=9.0, frontsurfaceoffset=0.001, backsurfaceoffset=0.001, debug=False):
         """
         This function defines the scan points to be used in the 
         :py:class:`~bifacial_radiance.AnalysisObj.analysis` function,
@@ -3823,8 +3835,6 @@ class AnalysisObj:
         # Height:  clearance height for fixed tilt systems, or torque tube
         #           height for single-axis tracked systems.
         #   Single axis tracked systems will consider the offset to calculate the final height.
-        #DONE: deprecate the ambiguous term "height" and use either hubheight or clearance_height
-
 
         if sensorsy >0:
             sensorsy = sensorsy * 1.0
@@ -3836,9 +3846,6 @@ class AnalysisObj:
         # Internal scene parameters are stored in scene.sceneDict. Load these into local variables
         sceneDict = scene.sceneDict
         #moduleDict = scene.moduleDict  # not needed?
-        
-        # ~ print("moduleAnalysis() sceneDict: ")
-        # ~ print(sceneDict)
 
 
         azimuth = sceneDict['azimuth']
@@ -3870,6 +3877,11 @@ class AnalysisObj:
         else:
             axis_tilt = 0
 
+        if frontsurfaceoffset is None:
+            frontsurfaceoffset = 0.001
+        if backsurfaceoffset is None:
+            backsurfaceoffset = 0.001
+        
         # The Sensor routine below needs a "hub-height", not a clearance height.
         # The below complicated check checks to see if height (deprecated) is passed,
         # and if clearance_height or hub_height is passed as well.
@@ -3879,13 +3891,13 @@ class AnalysisObj:
             height = sceneDict['hub_height']
 
             if 'height' in sceneDict:
-                print ("sceneDict warning: 'height' is deprecated, using "+
+                print ("sceneDict warning: 'height' is deprecated, using "
                        "'hub_height' and deleting 'height' from sceneDict.")
                 del sceneDict['height']
 
             if 'clearance_height' in sceneDict:
-                print ("sceneDict warning: 'hub_height' and 'clearance_height"+
-                       "' passed to moduleAnalysis(). Using 'hub_height' "+
+                print ("sceneDict warning: 'hub_height' and 'clearance_height"
+                       "' passed to moduleAnalysis(). Using 'hub_height' "
                        "instead of 'clearance_height'")
             # ~ print(">>>> moduleAnalysis() tilt:{}, hub_height:{}, sceney: {}, offset: {}, framez: {}, modulez: {}, height: {}"\
                 # ~ .format(tilt, sceneDict['hub_height'], sceney, offset, framez, modulez, height))
@@ -3896,33 +3908,35 @@ class AnalysisObj:
                     # ~ .format(tilt, sceneDict['clearance_height'], sceney, offset, framez, modulez, height))
 
                 if 'height' in sceneDict:
-                    print("sceneDict warning: 'height' is deprecated, using"+
+                    print("sceneDict warning: 'height' is deprecated, using"
                           " 'clearance_height' for moduleAnalysis()")
                     del sceneDict['height']
             else:
                 if 'height' in sceneDict:
-                    print("sceneDict warning: 'height' is deprecated. "+
-                          "Assuming this was clearance_height that was passed"+
-                          " as 'height' and renaming it in sceneDict for "+
+                    print("sceneDict warning: 'height' is deprecated. "
+                          "Assuming this was clearance_height that was passed"
+                          " as 'height' and renaming it in sceneDict for "
                           "moduleAnalysis()")
                     height = sceneDict['height'] + 1/2*sceney*np.sin(math.radians(abs(tilt))) - offset*np.sin(math.radians(abs(tilt)))
                 else:
-                    print("Isue with moduleAnalysis routine. No hub_height "+
-                          "or clearance_height passed (or even deprecated "+
+                    print("Isue with moduleAnalysis routine. No hub_height "
+                          "or clearance_height passed (or even deprecated "
                           "height!)")
 
         if debug:
-            print("For debug:\n hub_height, Azimuth, Tilt, nMods, nRows, "+
+            print("For debug:\n hub_height, Azimuth, Tilt, nMods, nRows, "
                   "Pitch, Offset, SceneY, SceneX")
             print(height, azimuth, tilt, nMods, nRows,
                   pitch, offset, sceney, scenex)
 
         if modWanted == 0:
-            print( " FYI Modules and Rows start at index 1. Reindexing to modWanted 1"  )
+            print( " FYI Modules and Rows start at index 1. "
+                  "Reindexing to modWanted 1"  )
             modWanted = modWanted+1  # otherwise it gives results on Space.
 
         if rowWanted ==0:
-            print( " FYI Modules and Rows start at index 1. Reindexing to rowWanted 1"  )
+            print( " FYI Modules and Rows start at index 1. "
+                  "Reindexing to rowWanted 1"  )
             rowWanted = rowWanted+1
 
         if modWanted is None:
@@ -3931,7 +3945,8 @@ class AnalysisObj:
             rowWanted = round(nRows / 1.99)
 
         if debug is True:
-            print( "Sampling: modWanted %i, rowWanted %i out of %i modules, %i rows" % (modWanted, rowWanted, nMods, nRows))
+            print( f"Sampling: modWanted {modWanted}, rowWanted {rowWanted} "
+                  "out of {nMods} modules, {nRows} rows" )
 
         x0 = (modWanted-1)*scenex - (scenex*(round(nMods/1.99)*1.0-1))
         y0 = (rowWanted-1)*pitch - (pitch*(round(nRows / 1.99)*1.0-1))
@@ -3952,14 +3967,14 @@ class AnalysisObj:
 
 
         # Axis of rotation Offset (if offset is not 0) for the front of the module
-        x3 = (offset + framez + 0.002) * math.sin(math.radians(tilt)) * math.sin(math.radians(azimuth))
-        y3 = (offset + framez) * math.sin(math.radians(tilt)) * math.cos(math.radians(azimuth))
-        z3 = (offset + framez + 0.002) * math.cos(math.radians(tilt))
+        x3 = (offset + framez + frontsurfaceoffset) * math.sin(math.radians(tilt)) * math.sin(math.radians(azimuth))
+        y3 = (offset + framez + frontsurfaceoffset) * math.sin(math.radians(tilt)) * math.cos(math.radians(azimuth))
+        z3 = (offset + framez + frontsurfaceoffset) * math.cos(math.radians(tilt))
         
         # Axis of rotation offset for the back of the module
-        x4 = (offset + (framez-modulez) - 0.002) * math.sin(tilt*dtor) * math.sin((azimuth)*dtor)
-        y4 = (offset + (framez-modulez) - 0.002) * math.sin(tilt*dtor) * math.cos((azimuth)*dtor)
-        z4 = (offset + (framez-modulez) - 0.002) * math.cos(tilt*dtor)
+        x4 = (offset + (framez-modulez) - backsurfaceoffset) * math.sin(tilt*dtor) * math.sin((azimuth)*dtor)
+        y4 = (offset + (framez-modulez) - backsurfaceoffset) * math.sin(tilt*dtor) * math.cos((azimuth)*dtor)
+        z4 = (offset + (framez-modulez) - backsurfaceoffset) * math.cos(tilt*dtor)
 
         xstartfront = x1 + x2 + x3 + originx
         xstartback = x1 + x2 + x4 + originx
@@ -3985,16 +4000,16 @@ class AnalysisObj:
         
         #NEW: adjust orientation of scan depending on tilt & azimuth
         zdir = np.cos((tilt)*dtor)
-        xdir = np.sin((tilt)*dtor) * np.cos((azimuth)*dtor)
-        ydir = np.sin((tilt)*dtor) * np.sin((azimuth)*dtor)
-        front_orient = '%0.5f %0.5f %0.5f' % (-xdir, -ydir, -zdir)
-        back_orient = '%0.5f %0.5f %0.5f' % (xdir, ydir, zdir)
-        
-        frontscan = {'xstart': xstartfront + xinc, 'ystart': ystartfront + yinc + yoffset,
+        ydir = np.sin((tilt)*dtor) * np.cos((azimuth)*dtor)
+        xdir = np.sin((tilt)*dtor) * np.sin((azimuth)*dtor)
+        front_orient = '%0.3f %0.3f %0.3f' % (-xdir, -ydir, -zdir)
+        back_orient = '%0.3f %0.3f %0.3f' % (xdir, ydir, zdir)
+    
+        frontscan = {'xstart': xstartfront + xinc, 'ystart': ystartfront + yinc,
                      'zstart': zstartfront + zinc,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc , 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':front_orient }
-        backscan = {'xstart': xstartback + xinc, 'ystart':  ystartback + yinc + yoffset,
+        backscan = {'xstart': xstartback + xinc, 'ystart':  ystartback + yinc,
                      'zstart': zstartback + zinc,
                      'xinc':xinc, 'yinc': yinc,
                      'zinc':zinc, 'Nx': 1, 'Ny':sensorsy, 'Nz':1, 'orient':back_orient }
