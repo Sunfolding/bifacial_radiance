@@ -1657,8 +1657,8 @@ class RadianceObj:
 
         if glass is True:
             glassz = 0.003
-            # leave 1mm gap between module material and each glass sheet and 1mm to top of frame
-            modulezoffset = round(framez-glassz-modulez-0.001-0.001,6)
+            # leave 2mm gap between module material and each glass sheet and 1mm to top of frame
+            modulezoffset = round(framez-0.001-glassz-0.002-modulez,6)
         else:
             modulezoffset = round(framez-modulez,6)
             
@@ -1666,7 +1666,7 @@ class RadianceObj:
             
             if not cellLevelModuleParams:
                 try:
-                    text = f'\n!genbox black cellMaterial {modulex} {moduley} {modulez} '
+                    text = f'\n!genbox cellmaterial cells {modulex} {moduley} {modulez} '
                     text+= f'| xform -t {-modulex/2.0:.5f} {(-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+modulezoffset:.5f} '
                     if Ny > 1:
                         text+= f'-a {Ny} -t 0 {moduley+ygap:.5f} 0 \n'
@@ -1717,12 +1717,12 @@ class RadianceObj:
             if glass is True:
                 # Top glass sheet
                 text += f'\n!genbox anti_refl_glass topglass {glassx} {glassy} {glassz} '
-                text+= f'| xform -t {-glassx/2.0:.5f} {(-glassy*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+framez-glassz-0.001:.5f} '
+                text+= f'| xform -t {-glassx/2.0:.5f} {(-glassy*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+framez-0.001-glassz:.5f} '
                 if Ny > 1:
                     text+= f'-a {Ny} -t 0 {moduley+ygap:.5f} 0 '
-                # Bottom glass sheet - leave 1mm in between glass and module material
+                # Bottom glass sheet 
                 text += f'\n!genbox std_glass bottomglass {glassx} {glassy} {glassz} '
-                text+= f'| xform -t {-modulex/2.0:.5f} {(-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+framez-0.001-glassz-modulez-0.002-glassz-0.001:.5f} '
+                text+= f'| xform -t {-modulex/2.0:.5f} {(-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+framez-0.001-glassz-0.002-modulez-0.002-glassz:.5f} '
                 if Ny > 1:
                     text+= f'-a {Ny} -t 0 {glassy+ygap:.5f} 0 '
 
