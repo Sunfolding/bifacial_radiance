@@ -904,10 +904,9 @@ class RadianceObj:
             '%s ' % (self.ground.Grefl[groundindex]/self.ground.normval[groundindex]) + \
             '%s 0\n' % (self.ground.Brefl[groundindex]/self.ground.normval[groundindex]) + \
             '\nground_glow source ground\n0\n0\n4 0 0 -1 180\n' +\
-            "\nvoid plastic %s\n0\n0\n5 %0.3f %0.3f %0.3f 0 0\n" %(
-            self.ground.ground_type, self.ground.Rrefl[groundindex], self.ground.Grefl[groundindex], self.ground.Brefl[groundindex]) +\
-            "\n%s ring groundplane\n" % (self.ground.ground_type) +\
-            '0\n0\n8\n0 0 0\n0 0 1\n0 150'
+            f'\ngroundtexture plastic {self.ground.ground_type}\n0\n0\n5 {self.ground.Rrefl[groundindex]} {self.ground.Grefl[groundindex]} {self.ground.Brefl[groundindex]} 0 0\n' +\
+            f'\n{self.ground.ground_type} ring groundplane\n' +\
+            '0\n0\n8\n0 0 0\n0 0 1\n0 120\n'
 
         time = metdata.datetime[timeindex]
         filename = str(time)[5:-12].replace('-','_').replace(' ','_')
@@ -1628,17 +1627,18 @@ class RadianceObj:
             else:
                 offsetfromaxis = zgap
                 tto = 0                
-        #TODO: replace these with functions
-
+        
         modulez = 0.020
         moduley = y
         modulex = x
         glassy = y
         glassx = x
         glassz = 0.0
+        epdmz = 0.0
         framez = 0.0
         framey = 0.0
         framex = 0.0
+        frameoffset = 0.0
         framewidth = 0.000
         modulezoffset = 0.0
         if hasFrame is True:
@@ -1647,7 +1647,8 @@ class RadianceObj:
                 exit(1)
             framewidth = 0.011
             framez = 0.033
-            modulez = 0.001
+            frameoffset = 0.001
+            modulez = 0.002
             framex = x
             framey = y
             modulex -= framewidth
@@ -1656,18 +1657,17 @@ class RadianceObj:
             glassy -= framewidth
 
         if glass is True:
-            glassz = 0.003
-            # leave 2mm gap between module material and each glass sheet and 1mm to top of frame
-            modulezoffset = round(framez-0.001-glassz-0.002-modulez,6)
-        else:
-            modulezoffset = round(framez-modulez,6)
-            
+            glassz = 0.002
+            epdmz = 0.001
+ 
+        modulezoffset = round(offsetfromaxis+framez-frameoffset-glassz-epdmz-modulez,6)
+       
         if text is None:
             
             if not cellLevelModuleParams:
                 try:
                     text = f'\n!genbox cellmaterial cells {modulex} {moduley} {modulez} '
-                    text+= f'| xform -t {-modulex/2.0:.5f} {(-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+modulezoffset:.5f} '
+                    text+= f'| xform -t {-modulex/2.0:.5f} {(-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {modulezoffset:.5f} '
                     if Ny > 1:
                         text+= f'-a {Ny} -t 0 {moduley+ygap:.5f} 0 \n'
  
@@ -1715,14 +1715,18 @@ class RadianceObj:
                       "Factor of {} %".format(packagingfactor))
                       
             if glass is True:
+                xform_x = -glassx/2.0
+                xform_y = (-glassy*Ny/2.0)-(ygap*(Ny-1)/2.0)
+                xform_z_base = offsetfromaxis+framez-frameoffset-glassz
                 # Top glass sheet
-                text += f'\n!genbox anti_refl_glass topglass {glassx} {glassy} {glassz} '
-                text+= f'| xform -t {-glassx/2.0:.5f} {(-glassy*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+framez-0.001-glassz:.5f} '
+                text += f'\n!genbox module_glass topglass {glassx} {glassy} {glassz} '
+                text+= f'| xform -t {xform_x:.5f} {xform_y:.5f} {xform_z_base:.5f} '
                 if Ny > 1:
                     text+= f'-a {Ny} -t 0 {moduley+ygap:.5f} 0 '
+                # GAP HERE FOR EPDM AND PV CELLS
                 # Bottom glass sheet 
-                text += f'\n!genbox std_glass bottomglass {glassx} {glassy} {glassz} '
-                text+= f'| xform -t {-modulex/2.0:.5f} {(-moduley*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis+framez-0.001-glassz-0.002-modulez-0.002-glassz:.5f} '
+                text += f'\n!genbox module_glass bottomglass {glassx} {glassy} {glassz} '
+                text+= f'| xform -t {xform_x:.5f} {xform_y:.5f} {xform_z_base-epdmz-modulez-epdmz-glassz:.5f} '
                 if Ny > 1:
                     text+= f'-a {Ny} -t 0 {glassy+ygap:.5f} 0 '
 
@@ -2662,10 +2666,10 @@ class GroundObj:
             groundstring = ( f'\nskyfunc glow ground_glow\n0\n0\n4 ' 
                 f'{Rrefl/normval} {Grefl/normval} {Brefl/normval} 0\n' 
                 '\nground_glow source ground\n0\n0\n4 0 0 -1 180\n' 
-                f'\nvoid plastic {self.ground_type}\n0\n0\n5 '
+                f'\ngroundtexture plastic {self.ground_type}\n0\n0\n5 '
                 f'{Rrefl:0.3f} {Grefl:0.3f} {Brefl:0.3f} 0 0\n'
                 f"\n{self.ground_type} ring groundplane\n" 
-                '0\n0\n8\n0 0 -.01\n0 0 1\n0 100' )
+                '0\n0\n8\n0 0 0.0\n0 0 1\n0 90' )
         except IndexError as err:
             print(f'Index {index} passed to albedo with only '
                   f'{self.Rrefl.__len__()} values.'   )
@@ -3083,6 +3087,8 @@ class MetObj:
         self.ghi = np.array(tmydata.GHI)
         self.dhi = np.array(tmydata.DHI)
         self.dni = np.array(tmydata.DNI)
+        self.windspeed = np.array(tmydata.Wspd)
+        self.temperature = np.array(tmydata.DryBulb)
         self.albedo = np.array(tmydata.Alb)
         
         #v0.2.5: initialize MetObj with solpos, sunrise/set and corrected time
@@ -3236,7 +3242,9 @@ class MetObj:
                                         'theta':self.tracker_theta[i],
                                         'ghi':self.ghi[i],
                                         'dni':self.dni[i],
-                                        'dhi':self.dhi[i]
+                                        'dhi':self.dhi[i],
+                                        'temperature':self.temperature[i],
+                                        'windspeed':self.windspeed[i],
                                         }
 
         return trackerdict
