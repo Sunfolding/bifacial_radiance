@@ -1406,7 +1406,10 @@ class RadianceObj:
         #use rvu to see if everything looks good. 
         # use cmd for this since it locks out the terminal.
         #'rvu -vf views\side.vp -e .01 monopanel_test.oct'
-        print("Created %s.oct" % (octname))
+        if frozen is True:
+            print(f'Created frozen octree: {octname}')
+        else:
+            print(f'Created octree: {octname}')
         self.octfile = '%s.oct' % (octname)
         return '%s.oct' % (octname)
 
@@ -1453,7 +1456,7 @@ class RadianceObj:
                 filelist = self.materialfiles + [trackerdict[index]['skyfile'], trackerdict[index]['radfile']]
                 print(f'rad file list: {filelist}')
                 octname = '1axis_%s%s'%(index, customname)
-                trackerdict[index]['octfile'] = self.makeOct(filelist, octname, hpc, frozen)
+                trackerdict[index]['octfile'] = self.makeOct(filelist, octname, hpc, frozen=frozen)
             except KeyError as e:
                 print('Trackerdict key error: {}'.format(e))
 
