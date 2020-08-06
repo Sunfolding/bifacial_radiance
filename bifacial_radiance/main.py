@@ -1635,9 +1635,9 @@ class RadianceObj:
         moduley = y
         modulex = x
         glassy = y
-        glassx = x
+        glassx = x+0.004
         glassz = 0.0
-        epdmz = 0.0
+        glasszoffset = 0.0
         framez = 0.0
         framey = 0.0
         framex = 0.0
@@ -1660,10 +1660,10 @@ class RadianceObj:
             glassy -= framewidth
 
         if glass is True:
-            glassz = 0.002
-            epdmz = 0.001
+            glassz = 0.0025
+            glasszoffset = 0.0005
  
-        modulezoffset = round(offsetfromaxis+framez-frameoffset-glassz-epdmz-modulez,6)
+        modulezoffset = round(offsetfromaxis+framez-frameoffset-glassz-modulez,6)
        
         if text is None:
             
@@ -1682,8 +1682,8 @@ class RadianceObj:
                         text+= f'\n!genbox ModuleFrame frameBot {framex-(framewidth*2):.5f} {framewidth:.5f} {framez:.5f} '
                         text+= f'| xform -t {-(framex-(framewidth*2))/2.0:.5f} {(-framey*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis:.5f} '
                         # Left side
-                        text+= f'\n!genbox ModuleFrame frameL {framewidth:.5f} {framey:.5f} {framez:.5f} '
-                        text+= f'| xform -t {-framex/2.0:.5f} {(-framey*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis:.5f} '
+                        # ~ text+= f'\n!genbox ModuleFrame frameL {framewidth:.5f} {framey:.5f} {framez:.5f} '
+                        # ~ text+= f'| xform -t {-framex/2.0:.5f} {(-framey*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis:.5f} '
                         # Right side
                         text+= f'\n!genbox ModuleFrame frameR {framewidth:.5f} {framey:.5f} {framez:.5f} '
                         text+= f'| xform -t {framex/2.0-framewidth:.5f} {(-framey*Ny/2.0)-(ygap*(Ny-1)/2.0):.5f} {offsetfromaxis:.5f} '
@@ -1723,13 +1723,13 @@ class RadianceObj:
                 xform_z_base = offsetfromaxis+framez-frameoffset-glassz
                 # Top glass sheet
                 text += f'\n!genbox module_glass topglass {glassx} {glassy} {glassz} '
-                text+= f'| xform -t {xform_x:.5f} {xform_y:.5f} {xform_z_base:.5f} '
+                text+= f'| xform -t {xform_x:.5f} {xform_y:.5f} {xform_z_base-glasszoffset:.5f} '
                 if Ny > 1:
                     text+= f'-a {Ny} -t 0 {moduley+ygap:.5f} 0 '
                 # GAP HERE FOR EPDM AND PV CELLS
                 # Bottom glass sheet 
                 text += f'\n!genbox module_glass bottomglass {glassx} {glassy} {glassz} '
-                text+= f'| xform -t {xform_x:.5f} {xform_y:.5f} {xform_z_base-epdmz-modulez-epdmz-glassz:.5f} '
+                text+= f'| xform -t {xform_x:.5f} {xform_y:.5f} {xform_z_base-modulez-glassz+glasszoffset:.5f} '
                 if Ny > 1:
                     text+= f'-a {Ny} -t 0 {glassy+ygap:.5f} 0 '
 
